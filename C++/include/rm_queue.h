@@ -31,10 +31,10 @@ typedef struct rm_queue
     int maxsize;
 } RM_QUEUE;
 
-RM_QUEUE Socket_Tx_Buffer;
-RM_QUEUE Socket_Tx_Buffer_M;
-RM_QUEUE Socket_Tx_Buffer_NonBlock;
-RM_QUEUE Socket_Tx_Buffer_Block;
+extern RM_QUEUE Socket_Tx_Buffer;
+extern RM_QUEUE Socket_Tx_Buffer_M;
+extern RM_QUEUE Socket_Tx_Buffer_NonBlock;
+extern RM_QUEUE Socket_Tx_Buffer_Block;
 ///
 /// \brief RM_Queue_Create      创建队列
 /// \param Q                    队列指针

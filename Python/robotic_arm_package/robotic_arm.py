@@ -32,7 +32,6 @@ elif sys.platform == "win32":
         dllPath = os.path.join(dllPath, 'win_64', 'RM_Base.dll')
     else:
         dllPath = os.path.join(dllPath, 'win_32', 'RM_Base.dll')
-        print(dllPath)
 else:
     dllPath = os.path.join(dllPath, 'linux_arm', 'libRM_Base.so.1.0.0')
 
@@ -212,7 +211,8 @@ class JointStatus(ctypes.Structure):
         ("joint_err_code", ctypes.c_uint16 * ARM_DOF),
         ("joint_position", ctypes.c_float * ARM_DOF),
         ("joint_temperature", ctypes.c_float * ARM_DOF),
-        ("joint_voltage", ctypes.c_float * ARM_DOF)
+        ("joint_voltage", ctypes.c_float * ARM_DOF),
+        ("joint_speed", ctypes.c_float * ARM_DOF)
     ]
 
 
@@ -224,6 +224,24 @@ class ForceData(ctypes.Structure):
         ("coordinate", ctypes.c_int)
     ]
 
+class ExpandState(ctypes.Structure):
+    _fields_ = [
+        ("pos", ctypes.c_float),      # 当前角度  精度 0.001°
+        ("current", ctypes.c_int),      # 当前驱动电流，单位：mA，精度：1mA
+        ("err_flag", ctypes.c_int),     # 驱动错误代码，错误代码类型参考关节错误代码
+        ("en_flag", ctypes.c_int),      # 当前关节使能状态 ，1 为上使能，0 为掉使能
+        ("joint_id", ctypes.c_int),     # 关节id号
+        ("mode", ctypes.c_int),     # 当前升降状态，0-空闲，1-正方向速度运动，2-正方向位置运动，3-负方向速度运动，4-负方向位置运动
+    ]
+
+class LiftState(ctypes.Structure):
+    _fields_ = [
+        ("height", ctypes.c_int),       #当前升降机构高度，单位：mm，精度：1mm
+        ("pos", ctypes.c_float),      #当前角度  精度 0.001°
+        ("current", ctypes.c_int),      #当前驱动电流，单位：mA，精度：1mA
+        ("err_flag", ctypes.c_int),     #驱动错误代码，错误代码类型参考关节错误代码
+        ("en_flag", ctypes.c_int)       #当前关节使能状态 ，1 为上使能，0 为掉使能
+    ]
 
 # Define the RobotStatus structure
 class RobotStatus(ctypes.Structure):
@@ -234,12 +252,32 @@ class RobotStatus(ctypes.Structure):
         ("joint_status", JointStatus),  # 当前关节状态
         ("force_sensor", ForceData),  # 力数据
         ("sys_err", ctypes.c_uint16),  # 系统错误吗
-        ("waypoint", Pose)  # 路点信息
+        ("waypoint", Pose),  # 路点信息
+        ("liftState", LiftState) , # 升降关节数据
+        ("expandState", ExpandState) , # 扩展关节数据
     ]
 
 
 CANFD_Callback = ctypes.CFUNCTYPE(None, CallbackData)
 RealtimePush_Callback = ctypes.CFUNCTYPE(None, RobotStatus)
+
+class UDP_Custom_Config(ctypes.Structure):
+    _fields_ = [
+        ("joint_speed", ctypes.c_int),   # 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        ("lift_state", ctypes.c_int),    # 升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        ("expand_state", ctypes.c_int),  # 扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状
+    ]
+
+class Realtime_Push_Config(ctypes.Structure):
+    _fields_ = [
+        ("cycle", ctypes.c_int),      # 广播周期，5ms的倍数，-1：不设置，保持之前的状态
+        ("enable", ctypes. c_bool),     # 使能，是否主动上报
+        ("port", ctypes.c_int),       # 广播的端口号，-1：不设置，保持之前的状态
+        ("force_coordinate", ctypes.c_int),       # 系统外受力数据的坐标系，0为传感器坐标系 1为当前工作坐标系 2为当前工具坐标系（力传感器版本支持）-1代表不设置，保持之前的状态
+        ("ip", ctypes.c_char* 28),       # 自定义的上报目标IP地址，空字符串代表不设置，保持之前的状态
+        ("custom", UDP_Custom_Config)       # 自定义项内容
+    ]
+
 
 
 class TrajectoryData(ctypes.Structure):
@@ -1964,11 +2002,11 @@ class Initial_Pose():
         tag = self.pDll.Get_Install_Pose(self.nSocket, x, y, z)
         logger_.info(f'Get_Install_Pose:{tag}')
 
-        return tag, x, y, z
+        return tag, x.value, y.value, z.value
 
 
 class Move_Plan:
-    def Movej_Cmd(self, joint, v, trajectory_connect=0, r=0, block=True):
+    def Movej_Cmd(self, joint, v, r, trajectory_connect=0, block=True):
         """
        Movej_Cmd 关节空间运动
        ArmSocket socket句柄
@@ -1984,7 +2022,7 @@ class Move_Plan:
         float_joint = ctypes.c_float * le
         joint = float_joint(*joint)
         self.pDll.Movej_Cmd.argtypes = (ctypes.c_int, ctypes.c_float * le, ctypes.c_byte,
-                                        ctypes.c_float, ctypes.c_int, ctypes.c_bool)
+                                        ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
 
         self.pDll.Movej_Cmd.restype = self.check_error
 
@@ -1994,7 +2032,7 @@ class Move_Plan:
 
         return tag
 
-    def Movel_Cmd(self, pose, v, trajectory_connect=0, r=0, block=True):
+    def Movel_Cmd(self, pose, v, r, trajectory_connect=0, block=True):
         """
         笛卡尔空间直线运动
 
@@ -2012,7 +2050,7 @@ class Move_Plan:
         po1.euler = Euler(*pose[3:])
 
         self.pDll.Movel_Cmd.argtypes = (
-            ctypes.c_int, Pose, ctypes.c_byte, ctypes.c_float, ctypes.c_int, ctypes.c_bool)
+            ctypes.c_int, Pose, ctypes.c_byte, ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
         self.pDll.Movel_Cmd.restype = self.check_error
         tag = self.pDll.Movel_Cmd(
             self.nSocket, po1, v, r, trajectory_connect, block)
@@ -2020,21 +2058,21 @@ class Move_Plan:
 
         return tag
 
-    def Movec_Cmd(self, pose_via, pose_to, v, loop, trajectory_connect=0, r=0, block=True):
+    def Movec_Cmd(self, pose_via, pose_to, v, r, loop, trajectory_connect=0, block=True):
         """
         Movec_Cmd 笛卡尔空间圆弧运动
         :param pose_via: 中间点位姿，位置单位：米，姿态单位：弧度
         :param pose_to: 终点位姿
         :param v 速度百分比系数，1~100。
         :param r 交融半径百分比系数，0~100。
-        :param trajectory_connect: 代表是否和下一条运动一起规划，0代表立即规划，1代表和下一条轨迹一起规划，当为1时，轨迹不会立即执行
         :param loop:规划圈数，目前默认0.
+        :param trajectory_connect: 代表是否和下一条运动一起规划，0代表立即规划，1代表和下一条轨迹一起规划，当为1时，轨迹不会立即执行
         :param block:RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待机械臂到达位置或者规划失败
         :return:
         """
 
         self.pDll.Movec_Cmd.argtypes = (
-            ctypes.c_int, Pose, Pose, ctypes.c_byte, ctypes.c_float, ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
+            ctypes.c_int, Pose, Pose, ctypes.c_byte, ctypes.c_byte, ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
         self.pDll.Movec_Cmd.restype = self.check_error
 
         pose1 = Pose()
@@ -2054,7 +2092,7 @@ class Move_Plan:
 
         return tag
 
-    def Movej_P_Cmd(self, pose, v, trajectory_connect=0, r=0, block=True):
+    def Movej_P_Cmd(self, pose, v, r, trajectory_connect=0, block=True):
         """
         该函数用于关节空间运动到目标位姿
         param ArmSocket socket句柄
@@ -2073,7 +2111,7 @@ class Move_Plan:
         po1.euler = Euler(*pose[3:])
 
         self.pDll.Movej_P_Cmd.argtypes = (
-            ctypes.c_int, Pose, ctypes.c_byte, ctypes.c_float, ctypes.c_int, ctypes.c_bool)
+            ctypes.c_int, Pose, ctypes.c_byte, ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
         self.pDll.Movej_P_Cmd.restype = self.check_error
 
         tag = self.pDll.Movej_P_Cmd(
@@ -2082,12 +2120,11 @@ class Move_Plan:
 
         return tag
 
-    def Moves_Cmd(self, pose, v, trajectory_connect=0, r=0, block=True):
+    def Moves_Cmd(self, pose, v, r, trajectory_connect=0, block=True):
         """
         该函数用于样条曲线运动
         :param ArmSocket socket句柄
-        :param pose: 目标位姿，位置单位：米，姿态单位：弧度。 注意：目标位姿必须是机械臂当前工具坐标系相对于当前工作坐标系的位姿，
-              用户在使用该指令前务必确保，否则目标位姿会出错！！
+        :param pose: 目标位姿，位置单位：米，姿态单位：弧度。
         :param v 速度百分比系数，1~100。
         :param r 交融半径百分比系数，0~100。
         :param trajectory_connect: 代表是否和下一条运动一起规划，0代表立即规划，1代表和下一条轨迹一起规划，当为1时，轨迹不会立即执行
@@ -2101,7 +2138,7 @@ class Move_Plan:
         po1.euler = Euler(*pose[3:])
 
         self.pDll.Moves_Cmd.argtypes = (
-            ctypes.c_int, Pose, ctypes.c_byte, ctypes.c_float, ctypes.c_int, ctypes.c_bool)
+            ctypes.c_int, Pose, ctypes.c_byte, ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
         self.pDll.Moves_Cmd.restype = self.check_error
 
         tag = self.pDll.Moves_Cmd(
@@ -2160,21 +2197,21 @@ class Move_Plan:
 
         return tag
 
-    def MoveRotate_Cmd(self, rotateAxis, rotateAngle, choose_axis, v, trajectory_connect=0, r=0, block=True):
+    def MoveRotate_Cmd(self, rotateAxis, rotateAngle, choose_axis, v, r, trajectory_connect=0, block=True):
         """
         MoveRotate_Cmd  计算环绕运动位姿并按照结果运动
         :param rotateAxis:旋转轴: 1:x轴, 2:y轴, 3:z轴
         :param rotateAngle:旋转角度: 旋转角度, 单位(度)
         :param choose_axis:指定计算时使用的坐标系
         :param v 速度百分比系数，1~100。
-        :param trajectory_connect:代表是否和下一条运动一起规划，0代表立即规划，1代表和下一条轨迹一起规划，当为1时，轨迹不会立即执行
         :param r 交融半径百分比系数，0~100。
+        :param trajectory_connect:代表是否和下一条运动一起规划，0代表立即规划，1代表和下一条轨迹一起规划，当为1时，轨迹不会立即执行
         :param block:RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞
         :return:0-成功，失败返回:错误码, rm_define.h查询.
         """
 
         self.pDll.MoveRotate_Cmd.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_float, Pose, ctypes.c_byte,
-                                             ctypes.c_float, ctypes.c_int, ctypes.c_bool)
+                                             ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
 
         self.pDll.MoveRotate_Cmd.restype = self.check_error
 
@@ -2190,9 +2227,8 @@ class Move_Plan:
 
         return tag
 
-    def MoveCartesianTool_Cmd(self, joint_cur, movelengthx, movelengthy, movelengthz, m_dev, v, trajectory_connect=0,
-                              r=0,
-                              block=True):
+    def MoveCartesianTool_Cmd(self, joint_cur, movelengthx, movelengthy, movelengthz, m_dev, v, r=0, trajectory_connect=0,
+                             block=True):
         """
         cartesian_tool           沿工具端位姿移动
         :param joint_cur: 当前关节角度
@@ -2201,8 +2237,8 @@ class Move_Plan:
         :param movelengthz: 沿Z轴移动长度，米为单位
         :param m_dev: 机械臂型号
         :param v 速度百分比系数，1~100。
-        :param trajectory_connect: 代表是否和下一条运动一起规划，0代表立即规划，1代表和下一条轨迹一起规划，当为1时，轨迹不会立即执行
         :param r 交融半径百分比系数，0~100。
+        :param trajectory_connect: 代表是否和下一条运动一起规划，0代表立即规划，1代表和下一条轨迹一起规划，当为1时，轨迹不会立即执行
         :param block:RM_NONBLOCK-非阻塞，发送后立即返回; RM_BLOCK-阻塞，等待机械臂到达位置或者规划失败
         :return:
         """
@@ -2212,7 +2248,7 @@ class Move_Plan:
             self.pDll.MoveCartesianTool_Cmd.argtypes = (
                 ctypes.c_int, ctypes.c_float *
                 6, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_int,
-                ctypes.c_byte, ctypes.c_float, ctypes.c_int, ctypes.c_bool)
+                ctypes.c_byte, ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
             self.pDll.MoveCartesianTool_Cmd.restype = self.check_error
 
             joints = (ctypes.c_float * 6)(*joint_cur)
@@ -2222,7 +2258,7 @@ class Move_Plan:
             self.pDll.MoveCartesianTool_Cmd.argtypes = (
                 ctypes.c_int, ctypes.c_float *
                 7, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_int,
-                ctypes.c_byte, ctypes.c_float, ctypes.c_int, ctypes.c_bool)
+                ctypes.c_byte, ctypes.c_byte, ctypes.c_int, ctypes.c_bool)
             self.pDll.MoveCartesianTool_Cmd.restype = self.check_error
 
             joints = (ctypes.c_float * 7)(*joint_cur)
@@ -4456,29 +4492,23 @@ class UDP():
         error_code                   0-成功，失败返回:错误码, rm_define.h查询.
         """
 
-        self.pDll.Get_Realtime_Push.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_int),
-                                                ctypes.POINTER(ctypes.c_int), ctypes.POINTER(
-                                                    ctypes.c_bool),
-                                                ctypes.POINTER(ctypes.c_int), ctypes.c_char_p)
+        self.pDll.Get_Realtime_Push.argtypes = (ctypes.c_int, ctypes.POINTER(Realtime_Push_Config))
 
-        cycle = ctypes.c_int()
-        port = ctypes.c_int()
-        enable = ctypes.c_bool()
-        force_coordinate = ctypes.c_int()
-        ip = ctypes.create_string_buffer(255)
+        config = Realtime_Push_Config()
+        conf_ptr = ctypes.pointer(config)
         error_code = self.pDll.Get_Realtime_Push(
-            self.nSocket, cycle, port, enable, force_coordinate, ip)
+            self.nSocket, config)
         while error_code and retry:
             # sleep(0.3)
             logger_.warning(
                 f"Failed to Get_Realtime_Push. Error Code: {error_code}\tRetry Count: {retry}")
             error_code = self.pDll.Get_Realtime_Push(
-                self.nSocket, cycle, port, enable, force_coordinate, ip)
+                self.nSocket, conf_ptr)
             retry -= 1
 
-        return error_code, cycle.value, port.value, enable.value, force_coordinate.value, ip.value
+        return error_code, config
 
-    def Set_Realtime_Push(self, cycle=-1, port=-1, enable=True, force_coordinate=-1, ip=None):
+    def Set_Realtime_Push(self, cycle=-1, port=-1, enable=True, force_coordinate=-1, ip=None, joint_speed=-1, lift_state=-1, expand_state=-1):
         """
         Set_Realtime_Push            设置主动上报接口配置
         :param cycle:               设置广播周期，为5ms的倍数
@@ -4486,19 +4516,25 @@ class UDP():
         :param enable:              设置使能，是否使能主动上上报
         :param force_coordinate:    系统外受力数据的坐标系，0为传感器坐标系 1为当前工作坐标系 2为当前工具坐标系
         :param ip:                  自定义的上报目标IP地址
+        joint_speed                 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        lift_state                  升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        expand_state                扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
         :return:                    0-成功，失败返回:错误码, rm_define.h查询.
         """
-        self.pDll.Set_Realtime_Push.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_bool,
-                                                ctypes.c_int, ctypes.c_char_p)
+        self.pDll.Set_Realtime_Push.argtypes = (ctypes.c_int, Realtime_Push_Config)
         self.pDll.Set_Realtime_Push.restype = self.check_error
 
-        if ip is not None:
-            ip = ctypes.c_char_p(ip.encode('utf-8'))
+        if ip is None:
+            ip = b''
         else:
-            ip = ctypes.c_char_p(b'')
+            ip = ip.encode('utf-8')
+
+        state = UDP_Custom_Config(joint_speed, lift_state, expand_state)
+
+        config = Realtime_Push_Config(cycle, enable, port, force_coordinate, ip, state)
 
         tag = self.pDll.Set_Realtime_Push(
-            self.nSocket, cycle, port, enable, force_coordinate, ip)
+            self.nSocket, config)
         logger_.info(f'Set_Realtime_Push执行结果：{tag}')
 
         return tag
@@ -4506,7 +4542,7 @@ class UDP():
     def Realtime_Arm_Joint_State(self, RobotStatuscallback):
         """
         Realtime_Arm_Joint_State     机械臂状态主动上报
-        :param RobotStatuscallback: 接收机械臂状态信息回调函数
+        :param RobotStatuscallback: 接收机械臂状态信息回调函数，接收RobotStatus类型的数据
         :return:
         """
         self.pDll.Realtime_Arm_Joint_State(RobotStatuscallback)
@@ -4673,6 +4709,34 @@ class Algo:
         logger_.info(f'Algo_Inverse_Kinematics执行结果:{tag}')
 
         return tag, list(q_out)
+
+    @classmethod
+    def Algo_PoseMove(cls, poseCurrent, deltaPosAndRot, frameMode):
+        """
+        :brief  Algo_PoseMove         计算平移、旋转运动位姿
+        :param  poseCurrent           当前位姿，输入position和euler
+        :param  deltaPosAndRot        沿轴位移和绕轴旋转数组（dx，dy，dz，rotx, roty, rotz），位置移动单位：m，旋转单位：度
+        :param  frameMode             坐标系模式选择。
+                                        0：计算相对于工作坐标系平移、旋转后的位姿，当工作坐标系为0时，即为计算相对基坐标系的位姿；
+                                        1：计算相对于工具坐标系平移、旋转后的位姿
+        :return pose                  经平移、旋转后的位姿[x, y, z, rx, ry, rz]
+        """
+
+        cls.pDll.Algo_PoseMove.restype = Pose
+        cls.pDll.Algo_PoseMove.argtypes = (Pose, 
+            ctypes.c_float * 6, ctypes.c_int )
+        pose = Pose()
+
+        pose.position = Pos(*poseCurrent[:3])
+        pose.euler = Euler(*poseCurrent[3:])
+
+        delta = (ctypes.c_float * 6)(*deltaPosAndRot)
+        Pose_ = cls.pDll.Algo_PoseMove(
+            pose, delta, frameMode)
+
+        position = Pose_.position
+        euler = Pose_.euler
+        return [position.x, position.y, position.z, euler.rx, euler.ry, euler.rz]
 
     @classmethod
     def Algo_RotateMove(cls, curr_joint, rotate_axis, rotate_angle, choose_axis):
@@ -4887,12 +4951,12 @@ class Algo:
     def Algo_Set_WorkFrame(cls, frame):
         """
         brief  Algo_Set_WorkFrame      设置工作坐标系
-        param  frame                    frame
+        param  frame                    frame（无需设置坐标系名称）
         """
 
-        cls.pDll.Algo_Set_WorkFrame.argtypes = [FRAME]
+        cls.pDll.Algo_Set_WorkFrame.argtypes = [ctypes.POINTER(FRAME)]
 
-        cls.pDll.Algo_Set_WorkFrame(frame)
+        cls.pDll.Algo_Set_WorkFrame(ctypes.byref(frame))
 
     @classmethod
     def Algo_Get_Curr_WorkFrame(cls):
@@ -4911,12 +4975,12 @@ class Algo:
     def Algo_Set_ToolFrame(cls, coord_tool):
         """
         :brief Algo_Set_ToolFrame       设置工具坐标系
-        :param frame                     坐标系信息
+        :param frame                    坐标系信息（无需设置坐标系名称）
         """
 
-        cls.pDll.Algo_Set_ToolFrame.argtypes = [FRAME]
+        cls.pDll.Algo_Set_ToolFrame.argtypes = [ctypes.POINTER(FRAME)]
 
-        cls.pDll.Algo_Set_ToolFrame(coord_tool)
+        cls.pDll.Algo_Set_ToolFrame(ctypes.byref(coord_tool))
 
     @classmethod
     def Algo_Get_Curr_ToolFrame(cls):
@@ -5689,6 +5753,18 @@ class Arm(Set_Joint, Get_Joint, Tcp_Config, Tool_Frame, Work_Frame, Arm_State, I
         time.sleep(0.5)
 
         return api_name.decode()
+
+    def Algo_Version(self):
+        """
+        Algo_Version          查询Algo版本信息
+        return                       Algo版本号
+        """
+        self.pDll.Algo_Version.restype = ctypes.c_char_p
+        version = self.pDll.Algo_Version()
+        logger_.info(f'Algo_Version:{version.decode()}')
+
+        return version.decode()
+
 
     def RM_API_UnInit(self):
         """

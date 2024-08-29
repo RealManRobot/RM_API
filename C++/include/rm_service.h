@@ -37,6 +37,12 @@ public:
     RM_SERVICESHARED_EXPORT char * Service_API_Version();
 
     ///
+    /// \brief Service_Algo_Version             查询API算法库版本信息
+    /// \return                                 API算法库版本信息
+    ///
+    RM_SERVICESHARED_EXPORT char * Service_Algo_Version();
+
+    ///
     /// \brief Service_Arm_Socket_Start         连接机械臂
     /// \param arm_ip                   IP地址
     /// \param arm_port                 端口号
@@ -683,7 +689,7 @@ public:
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Movej_Cmd(SOCKHANDLE ArmSocket, const float *joint,
-                                                  byte v, float r, int trajectory_connect, bool block);
+                                                  byte v, byte r, int trajectory_connect, bool block);
 
     ///
     /// \brief Service_MoveRotate_Cmd       环绕运动
@@ -695,7 +701,7 @@ public:
     /// \param r                            交融半径百分比系数， 0~100
     /// \param trajectory_connect           代表是否和下一条运动一起规划，0代表立即规划，1代表和下一条轨迹一起规划，当为1时，轨迹不会立即执行
     /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
-    RM_SERVICESHARED_EXPORT int Service_MoveRotate_Cmd(SOCKHANDLE ArmSocket, int rotateAxis, float rotateAngle, Pose choose_axis, byte v, float r, int trajectory_connect, bool block);
+    RM_SERVICESHARED_EXPORT int Service_MoveRotate_Cmd(SOCKHANDLE ArmSocket, int rotateAxis, float rotateAngle, Pose choose_axis, byte v, byte r, int trajectory_connect, bool block);
 
     ///
     /// \brief cartesian_tool           沿工具端位姿移动
@@ -711,7 +717,7 @@ public:
     /// \param block                    RM_NONBLOCK-非阻塞，发送后立即返回; RM_BLOCK-阻塞，等待机械臂到达位置或者规划失败
     /// \return                         0-成功，失败返回:错误码, rm_define.h查询.
     ///
-    RM_SERVICESHARED_EXPORT int Service_MoveCartesianTool_Cmd(SOCKHANDLE ArmSocket, float *Joint_Cur, float movelengthx, float movelengthy, float movelengthz, int m_dev, byte v, float r, int trajectory_connect, bool block);
+    RM_SERVICESHARED_EXPORT int Service_MoveCartesianTool_Cmd(SOCKHANDLE ArmSocket, float *Joint_Cur, float movelengthx, float movelengthy, float movelengthz, int m_dev, byte v, byte r, int trajectory_connect, bool block);
 
     ///
     /// \brief Service_Movel_Cmd 笛卡尔空间直线运动
@@ -723,7 +729,7 @@ public:
     /// \param block RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待机械臂到达位置或者规划失败
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
-    RM_SERVICESHARED_EXPORT int Service_Movel_Cmd(SOCKHANDLE ArmSocket, Pose pose, byte v, float r, int trajectory_connect, bool block);
+    RM_SERVICESHARED_EXPORT int Service_Movel_Cmd(SOCKHANDLE ArmSocket, Pose pose, byte v, byte r, int trajectory_connect, bool block);
 
     ///
     /// \brief Service_Moves_Cmd 样条曲线运动
@@ -735,7 +741,7 @@ public:
     /// \param block RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待机械臂到达位置或者规划失败
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
-    RM_SERVICESHARED_EXPORT int Service_Moves_Cmd(SOCKHANDLE ArmSocket, Pose pose, byte v, float r, int trajectory_connect, bool block);
+    RM_SERVICESHARED_EXPORT int Service_Moves_Cmd(SOCKHANDLE ArmSocket, Pose pose, byte v, byte r, int trajectory_connect, bool block);
 
     ///
     /// \brief Service_Movec_Cmd 笛卡尔空间圆弧运动
@@ -750,7 +756,7 @@ public:
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Movec_Cmd(SOCKHANDLE ArmSocket, Pose pose_via, Pose pose_to,
-                                                  byte v, float r, byte loop, int trajectory_connect, bool block);
+                                                  byte v, byte r, byte loop, int trajectory_connect, bool block);
 
     ///
     /// \brief Service_Movej_CANFD 角度不经规划，直接通过CANFD透传给机械臂
@@ -842,7 +848,7 @@ public:
     /// \param block: RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待机械臂到达位置或者规划失败
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
-    RM_SERVICESHARED_EXPORT int Service_Movej_P_Cmd(SOCKHANDLE ArmSocket, Pose pose, byte v, float r, int trajectory_connect, bool block);
+    RM_SERVICESHARED_EXPORT int Service_Movej_P_Cmd(SOCKHANDLE ArmSocket, Pose pose, byte v, byte r, int trajectory_connect, bool block);
 
     ///
     /// \brief Service_Joint_Teach_Cmd 关节示教
@@ -2077,23 +2083,19 @@ public:
     ///
     /// \brief Service_Get_Realtime_Push            获取主动上报接口配置
     /// \param ArmSocket                    socket句柄
-    /// \param cycle                        获取广播周期，为5ms的倍数
-    /// \param port                         获取广播的端口号
-    /// \param enable                       获取使能，是否使能主动上上报
-    /// \param force_coordinate             获取系统外受力数据的坐标系(仅带有力传感器的机械臂支持)
-    /// \param ip                           获取自定义的上报目标IP地址
+    /// \param config                       获取到的主动上报接口配置
+    /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
     ///
-    RM_SERVICESHARED_EXPORT int Service_Get_Realtime_Push(SOCKHANDLE ArmSocket, int* cycle, int* port, bool* enable, int* force_coordinate, char* ip);
+    RM_SERVICESHARED_EXPORT int Service_Get_Realtime_Push(SOCKHANDLE ArmSocket, std::shared_ptr<Realtime_Push_Config>& config);
+    RM_SERVICESHARED_EXPORT int Service_Get_Realtime_Push(SOCKHANDLE ArmSocket, Realtime_Push_Config *config);
 
     ///
     /// \brief Service_Set_Realtime_Push            设置主动上报接口配置
-    /// \param cycle                        设置广播周期，为5ms的倍数
-    /// \param port                         设置广播的端口号
-    /// \param enable                       设置使能，是否使能主动上上报
-    /// \param force_coordinate             设置系统外受力数据的坐标系(仅带有力传感器的机械臂支持)
-    /// \param ip                           设置自定义的上报目标IP地址
+    /// \param ArmSocket                    socket句柄
+    /// \param config                       主动上报接口配置
+    /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
     ///
-    RM_SERVICESHARED_EXPORT int Service_Set_Realtime_Push(SOCKHANDLE ArmSocket, int cycle, int port, bool enable, int force_coordinate, const char* ip);
+    RM_SERVICESHARED_EXPORT int Service_Set_Realtime_Push(SOCKHANDLE ArmSocket, Realtime_Push_Config config);
 
     ///
     /// \brief Service_Realtime_Arm_Joint_State     机械臂状态主动上报
@@ -2413,12 +2415,21 @@ public:
     RM_SERVICESHARED_EXPORT int Service_Algo_Inverse_Kinematics_Wrap(const IK_Params* params);
 
     ///
-    /// \brief  Algo_RotateMove         计算环绕运动位姿
-    /// \param  curr_joint              当前关节角度 单位°
-    /// \param  rotate_axis             旋转轴: 1:x轴, 2:y轴, 3:z轴
-    /// \param  rotate_angle            旋转角度: 旋转角度, 单位(度)
-    /// \param  choose_axis             指定计算时使用的坐标系
-    /// \return Pose                    计算位姿结果
+    /// \brief Service_Algo_PoseMove 计算Pos和Rot沿某坐标系有一定的位移和旋转角度后，所得到的位姿数据
+    /// \param poseCurrent 当前位姿，输入position和euler
+    /// \param deltaPosAndRot 沿轴位移和绕轴旋转数组（dx，dy，dz，rotx, roty, rotz），位置移动单位：m，旋转单位：度
+    /// \param frameMode 坐标系模式选择，0：计算相对于工作坐标系平移、旋转后的位姿，当工作坐标系为0时，即为计算相对基坐标系的位姿；
+    ///                               1：计算相对于工具坐标系平移、旋转后的位姿
+    /// \return Pose 经平移、旋转后的位姿
+    RM_SERVICESHARED_EXPORT Pose Service_Algo_PoseMove(Pose poseCurrent, const float *deltaPosAndRot, int frameMode);
+
+    ///
+    /// \brief  计算环绕运动位姿
+    /// \param  curr_joint 当前关节角度，unit:deg
+    /// \param  rotate_axis 旋转轴：1：x轴  2：y轴   3：z轴
+    /// \param  rotate_angle 旋转角度，unit:deg
+    /// \param  choose_axis 指定计算时使用的坐标系
+    /// \return Pose 计算位姿结果
     RM_SERVICESHARED_EXPORT Pose Service_Algo_RotateMove(const float* const curr_joint, int rotate_axis,
                                                          float rotate_angle, Pose choose_axis);
 
@@ -2451,54 +2462,54 @@ public:
     RM_SERVICESHARED_EXPORT Quat Service_Algo_Euler2Quaternion(Euler eu);
 
     ///
-    /// \brief  Algo_Euler2Matrix       欧拉角转旋转矩阵
-    /// \param  eu                      欧拉角
-    /// \return Matrix                  旋转矩阵
+    /// \brief  欧拉角rx,ry,rz 转换成旋转矩阵（3*3）
+    /// \param  _rot3 输入欧拉角
+    /// \return Matrix （3*3）旋转矩阵
     ///
-    RM_SERVICESHARED_EXPORT Matrix Service_Algo_Euler2Matrix(Euler eu,float data[4][4]);
-    RM_SERVICESHARED_EXPORT Matrix Service_Algo_Euler2Matrix(Euler eu);
+    RM_SERVICESHARED_EXPORT Matrix Service_Algo_Euler2Matrix(Euler _rot3,float data[4][4]);
+    RM_SERVICESHARED_EXPORT Matrix Service_Algo_Euler2Matrix(Euler _rot3);
 
     ///
-    /// \brief  Algo_Pos2Matrix         位姿转旋转矩阵
-    /// \param  state                   位姿
-    /// \return Matrix                  旋转矩阵
+    /// \brief  位姿转旋转矩阵
+    /// \param  _point 位姿（xyz + rx ry rz)
+    /// \return Matrix 旋转矩阵(4*4)
     ///
-    RM_SERVICESHARED_EXPORT Matrix Service_Algo_Pos2Matrix(Pose state,float data[4][4]);
-    RM_SERVICESHARED_EXPORT Matrix Service_Algo_Pos2Matrix(Pose state);
+    RM_SERVICESHARED_EXPORT Matrix Service_Algo_Pos2Matrix(Pose _point,float data[4][4]);
+    RM_SERVICESHARED_EXPORT Matrix Service_Algo_Pos2Matrix(Pose _point);
 
     ///
-    /// \brief  Algo_Matrix2Pos         旋转矩阵转位姿
-    /// \param  matrix                  旋转矩阵
-    /// \return Pose                    位姿
+    /// \brief  矩阵转位姿
+    /// \param  _matPos 位姿的齐次变换矩阵
+    /// \return Pose 位姿（pose+euler+quaternion）
     ///
-    RM_SERVICESHARED_EXPORT Pose Service_Algo_Matrix2Pos(Matrix matrix,float data[4][4]);
-    RM_SERVICESHARED_EXPORT Pose Service_Algo_Matrix2Pos(Matrix matrix);
+    RM_SERVICESHARED_EXPORT Pose Service_Algo_Matrix2Pos(Matrix _matPos,float data[4][4]);
+    RM_SERVICESHARED_EXPORT Pose Service_Algo_Matrix2Pos(Matrix _matPos);
 
     ///
-    /// \brief  Algo_Base2WorkFrame     基坐标系转工作坐标系
-    /// \param  matrix                  工作坐标系在基坐标系下的矩阵
-    /// \param  state                   工具端坐标在基坐标系下位姿
-    /// \return Pose                    基坐标系在工作坐标系下的位姿
+    /// \brief  基坐标系位姿转工作坐标系位姿
+    /// \param  matWork2Base 工作坐标系矩阵
+    /// \param  poseBase 基坐标系下的位姿
+    /// \return Pose 工作坐标系下的位姿
     ///
-    RM_SERVICESHARED_EXPORT Pose Service_Algo_Base2WorkFrame(Matrix matrix,float data[4][4], Pose state);
-    RM_SERVICESHARED_EXPORT Pose Service_Algo_Base2WorkFrame(Matrix matrix, Pose state);
+    RM_SERVICESHARED_EXPORT Pose Service_Algo_Base2WorkFrame(Matrix matWork2Base,float data[4][4], Pose poseBase);
+    RM_SERVICESHARED_EXPORT Pose Service_Algo_Base2WorkFrame(Matrix matWork2Base, Pose poseBase);
 
     ///
-    /// \brief  Algo_WorkFrame2Base     工作坐标系转基坐标系
-    /// \param  matrix                  工作坐标系在基坐标系下的矩阵
-    /// \param  state                   工具端坐标在工作坐标系下位姿
-    /// \return Pose                    工作坐标系在基坐标系下的位姿
+    /// \brief  工作坐标系位姿转基坐标系位姿
+    /// \param  matWork2Base 工作坐标系矩阵
+    /// \param  poseBase 工作坐标系下的位姿
+    /// \return Pose 基坐标系下的位姿
     ///
-    RM_SERVICESHARED_EXPORT Pose Service_Algo_WorkFrame2Base(Matrix matrix,float data[4][4], Pose state);
-    RM_SERVICESHARED_EXPORT Pose Service_Algo_WorkFrame2Base(Matrix matrix, Pose state);
+    RM_SERVICESHARED_EXPORT Pose Service_Algo_WorkFrame2Base(Matrix matWork2Base,float data[4][4], Pose poseBase);
+    RM_SERVICESHARED_EXPORT Pose Service_Algo_WorkFrame2Base(Matrix matWork2Base, Pose poseBase);
 
     ///
-    /// \brief  Algo_Cartesian_Tool     计算沿工具坐标系运动位姿
-    /// \param  curr_joint              当前关节角度
-    /// \param  move_lengthx            沿X轴移动长度，米为单位
-    /// \param  move_lengthy            沿Y轴移动长度，米为单位
-    /// \param  move_lengthz            沿Z轴移动长度，米为单位
-    /// \return Pose                    工作坐标系下的位姿
+    /// \brief  计算沿工具坐标系运动位姿
+    /// \param  curr_joint 当前关节角度，unit:deg
+    /// \param  move_lengthx 沿 X 轴移动长度，unit:m
+    /// \param  move_lengthy 沿 Y 轴移动长度，unit:m
+    /// \param  move_lengthz 沿 Z 轴移动长度，unit:m
+    /// \return Pose 工作坐标系下的机械臂末端位姿
     ///
     RM_SERVICESHARED_EXPORT Pose Service_Algo_Cartesian_Tool(const float* const curr_joint, float move_lengthx,
                                                              float move_lengthy, float move_lengthz);
@@ -2507,7 +2518,7 @@ public:
     /// \brief Algo_Set_WorkFrame       设置工作坐标系
     /// \param coord_work               坐标系数据
     ///
-    RM_SERVICESHARED_EXPORT void Service_Algo_Set_WorkFrame(const FRAME* const coord_work);
+    RM_SERVICESHARED_EXPORT void Service_Algo_Set_WorkFrame(const FRAME* coord_work);
 
     ///
     /// \brief  Algo_Get_Curr_WorkFrame 获取当前工作坐标系
@@ -2520,7 +2531,7 @@ public:
     /// \brief Algo_Set_ToolFrame       设置工具坐标系
     /// \param coord_tool               坐标系数据
     ///
-    RM_SERVICESHARED_EXPORT void Service_Algo_Set_ToolFrame(const FRAME* const coord_tool);
+    RM_SERVICESHARED_EXPORT void Service_Algo_Set_ToolFrame(const FRAME* coord_tool);
 
     ///
     /// \brief  Algo_Get_Curr_ToolFrame 获取当前工具坐标系

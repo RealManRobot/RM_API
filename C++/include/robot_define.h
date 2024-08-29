@@ -211,8 +211,10 @@ typedef enum
 
 typedef enum
 {
-    fence_succeed = 0,     //电子围栏设置成功
-    fence_failed = 1       //电子围栏设置失败
+    fence_succeed = 0,      //电子围栏设置成功
+    fence_failed = 1,       //电子围栏设置失败
+    Not_cubiod = 2,         //输入参数无法构成长方体  
+    Not_plane = 3,          //输入参数无法构成平面      
 } IsFenceSucceed;
 typedef struct 
 {
@@ -241,6 +243,7 @@ typedef enum
     ECO65,
     ECO62,
     GEN72,
+    ECO63,
     UNIVERSAL
 } RobotType;
 

@@ -47,7 +47,7 @@ typedef SOCKET  SOCKHANDLE;
 typedef int SOCKHANDLE;
 #endif
 
-#define  SDK_VERSION (char*)"4.3.2"
+#define  SDK_VERSION (char*)"4.3.4"
 
 typedef unsigned char byte;
 typedef unsigned short u16;
@@ -68,14 +68,14 @@ typedef unsigned short u16;
 // 回调函数结构体
 typedef struct
 {
-    int sockhand;       // 返回调用时句柄
-    int codeKey;        // 调用接口类型
-    int errCode;        // 接口错误码
-    Pose pose;          // 位姿信息
-    float joint[7];     // 角度信息
+    int sockhand;       ///< 返回调用时句柄
+    int codeKey;        ///< 调用接口类型
+    int errCode;        ///< 接口错误码
+    Pose pose;          ///< 位姿信息
+    float joint[7];     ///< 角度信息
     float direction_force[7]; //所有方向的力或力矩
-    int nforce;         // 返回力大小
-    uint16_t sys_err;   // 返回系统错误
+    int nforce;         ///< 返回力大小
+    uint16_t sys_err;   ///< 返回系统错误
 } CallbackData;
 
 //坐标系
@@ -101,7 +101,10 @@ typedef struct
     float z;           //坐标系末端负载位置
 }FRAME;
 
-//机械臂控制模式
+/**
+ * @brief 机械臂当前规划类型
+ *
+ */
 typedef enum
 {
     None_Mode = 0,     //无规划
@@ -109,11 +112,14 @@ typedef enum
     Line_Mode = 2,     //笛卡尔空间直线规划
     Circle_Mode = 3,   //笛卡尔空间圆弧规划
     Replay_Mode = 4,    //拖动示教轨迹复现
-    Moves_Mode = 5      //样条曲线运动
-
+    Moves_Mode = 5,      //样条曲线运动
+    Blend_Mode = 6      // 交融轨迹规划
 }ARM_CTRL_MODES;
 
-//机械臂位置示教模式
+/**
+ * @brief 机械臂位置示教模式
+ *
+ */
 typedef enum
 {
     X_Dir = 0,       //X轴方向
@@ -144,13 +150,13 @@ typedef enum
 //机械臂状态参数
 typedef struct
 {
-    //float joint[ARM_DOF];       // 关节角度
-    float temperature[ARM_DOF];   // 关节温度
-    float voltage[ARM_DOF];       // 关节电压
-    float current[ARM_DOF];       // 关节电流
-    byte en_state[ARM_DOF];       // 使能状态
-    uint16_t err_flag[ARM_DOF];   // 关节错误代码
-    uint16_t sys_err;             // 机械臂系统错误代码
+    //float joint[ARM_DOF];       ///< 关节角度
+    float temperature[ARM_DOF];   ///< 关节温度
+    float voltage[ARM_DOF];       ///< 关节电压
+    float current[ARM_DOF];       ///< 关节电流
+    byte en_state[ARM_DOF];       ///< 使能状态
+    uint16_t err_flag[ARM_DOF];   ///< 关节错误代码
+    uint16_t sys_err;             ///< 机械臂系统错误代码
 }JOINT_STATE;
 
 //位置
@@ -222,13 +228,13 @@ typedef struct
 
 // 无线网络信息结构体
 typedef struct{
-    int channel;               // 信道 AP模式时存在此字段
-    char ip[16];               // IP 地址
-    char mac[18];              // MAC 地址
-    char mask[16];             // 子网掩码
-    char mode[5];              // 模式
-    char password[16];         // 密码
-    char ssid[32];             // 网络名称 (SSID)
+    int channel;               ///< 信道 AP模式时存在此字段
+    char ip[16];               ///< IP 地址
+    char mac[18];              ///< MAC 地址
+    char mask[16];             ///< 子网掩码
+    char mode[5];              ///< 模式
+    char password[16];         ///< 密码
+    char ssid[32];             ///< 网络名称 (SSID)
 }WiFi_Info;
 
 // 在线编程存储信息
@@ -241,37 +247,43 @@ typedef struct  {
 
 // 在线编程程序列表
 typedef struct{
-    int page_num;       // 页码（全部查询时此参数传NULL）
-    int page_size;      // 每页大小（全部查询时此参数传NULL）
+    int page_num;       ///< 页码（全部查询时此参数传NULL）
+    int page_size;      ///< 每页大小（全部查询时此参数传NULL）
     int total_size;
-    char vague_search[32];  // 模糊搜索 （传递此参数可进行模糊查询）
-    TrajectoryData list[100];   // 符合的在线编程列表
+    char vague_search[32];  ///< 模糊搜索 （传递此参数可进行模糊查询）
+    TrajectoryData list[100];   ///< 符合的在线编程列表
 }ProgramTrajectoryData;
 
-// 在线编程运行状态结构体
+/**
+ * 在线编程运行状态结构体
+ */
 typedef struct{
-    int run_state;  // 0 未开始 1运行中 2暂停中
-    int id;         // 运行轨迹编号，已存储轨迹 的id，没有存储则为0 ，未运行则不返回
-    int edit_id;    // 上次编辑的在线编程编号 ID，未运行时返回，没有存储则为0
-    int plan_num;   // 运行到的行数，未运行则不返回
-    int loop_num[10];   // 存在循环指令的行数，未运行则不返回
-    int loop_cont[10];  // 循环指令行数对应的运行次数，未运行则不返回
-    int step_mode;  // 单步模式，1为单步模式，0为非单步模式，未运行则不返回
-    int plan_speed; // 全局规划速度比例 1-100，未运行则不返回
+    int run_state;  ///< 0 未开始 1运行中 2暂停中
+    int id;         ///< 运行轨迹编号，已存储轨迹 的id，没有存储则为0 ，未运行则不返回
+    int edit_id;    ///< 上次编辑的在线编程编号 ID，未运行时返回，没有存储则为0
+    int plan_num;   ///< 运行到的行数，未运行则不返回
+    int loop_num[10];   ///< 存在循环指令的行数，未运行则不返回
+    int loop_cont[10];  ///< 循环指令行数对应的运行次数，未运行则不返回
+    int step_mode;  ///< 单步模式，1为单步模式，0为非单步模式，未运行则不返回
+    int plan_speed; ///< 全局规划速度比例 1-100，未运行则不返回
 }ProgramRunState;
 
-//扩展关节配置参数
+/**
+ * 扩展关节配置参数
+ */
 typedef struct{
-    int32_t rpm_max;        //  关节的最大速度
-    int32_t rpm_acc;        // 最大加速度
-    int32_t conversin_coe;  // 减速比,该字段只针对升降关节（指直线运动的关节）有效；如果是旋转关节（指做旋转运动的关节），则不发送该字段，注意参数的设置一定跟电机匹配，避免发生意外
-    int32_t limit_min;      // 最小限位，如果是旋转关节，单位为°，精度0.001，如果是升降关节，则单位为mm
-    int32_t limit_max;      // 最大限位，如果是旋转关节，单位为°，精度0.001，如果是升降关节，则单位为mm
+    int32_t rpm_max;        ///<  关节的最大速度
+    int32_t rpm_acc;        ///< 最大加速度
+    int32_t conversin_coe;  ///< 减速比,该字段只针对升降关节（指直线运动的关节）有效；如果是旋转关节（指做旋转运动的关节），则不发送该字段，注意参数的设置一定跟电机匹配，避免发生意外
+    int32_t limit_min;      ///< 最小限位，如果是旋转关节，单位为°，精度0.001，如果是升降关节，则单位为mm
+    int32_t limit_max;      ///< 最大限位，如果是旋转关节，单位为°，精度0.001，如果是升降关节，则单位为mm
 }ExpandConfig;
 
 
 //实时机械臂状态上报
-// 机械臂关节状态结构体
+/**
+ * 机械臂关节状态结构体
+ */
 typedef struct {
     float joint_current[ARM_DOF];
     byte joint_en_flag[ARM_DOF];
@@ -279,52 +291,84 @@ typedef struct {
     float joint_position[ARM_DOF];
     float joint_temperature[ARM_DOF];
     float joint_voltage[ARM_DOF];
+    float joint_speed[ARM_DOF];
 } JointStatus;
 
-// 力传感器结构体
+/**
+ * 力传感器结构体
+ */
 typedef struct {
     float force[6];
     float zero_force[6];
-    int coordinate;         //系统外受力数据的坐标系，0为传感器坐标系 1为当前工作坐标系 2为当前工具坐标系
+    int coordinate;         ///< 系统外受力数据的坐标系，0为传感器坐标系 1为当前工作坐标系 2为当前工具坐标系
 } ForceData;
 
-// UDP接口实时机械臂状态上报
+/***
+ * 扩展关节数据
+ *
+ */
 typedef struct {
-    int errCode;        // 接口错误码
-    char *arm_ip;
+    float pos;            ///< 当前角度  精度 0.001°，单位：°
+    int current;        ///< 当前驱动电流，单位：mA，精度：1mA
+    int err_flag;       ///< 驱动错误代码，错误代码类型参考关节错误代码
+    int en_flag;        ///< 当前关节使能状态 ，1 为上使能，0 为掉使能
+    int joint_id;       ///< 关节id号
+    int mode;           ///< 当前升降状态，0-空闲，1-正方向速度运动，2-正方向位置运动，3-负方向速度运动，4-负方向位置运动
+} ExpandState;
+
+/***
+ * 升降机构状态
+ *
+ */
+typedef struct {
+    int height;         ///< 当前升降机构高度，单位：mm，精度：1mm
+    float pos;            ///< 当前角度  精度 0.001°，单位：°
+    int current;        ///< 当前驱动电流，单位：mA，精度：1mA
+    int err_flag;       ///< 驱动错误代码，错误代码类型参考关节错误代码
+    int en_flag;        ///< 当前关节使能状态 ，1 为上使能，0 为掉使能
+} LiftState;
+
+/**
+ * UDP接口实时机械臂状态上报
+ */
+typedef struct {
+    int errCode;        ///< 接口错误码
+    char *arm_ip;       ///< 上报数据的机械臂IP
     uint16_t arm_err;
-    JointStatus joint_status;
-    ForceData force_sensor;
-    uint16_t sys_err;
-    Pose waypoint;
+    JointStatus joint_status;   ///< 关节状态
+    ForceData force_sensor;     ///< 力数据
+    uint16_t sys_err;       ///< 系统错误码
+    Pose waypoint;      ///< 当前路点
+    LiftState liftState;      ///< 升降关节数据
+    ExpandState expandState;      ///< 扩展关节数据
 } RobotStatus;
 
 
 //几何模型名称列表
 typedef struct
 {
-    char name[12];    // 几何模型名称,不超过10个字符
+    char name[12];    ///< 几何模型名称,不超过10个字符
 }ElectronicFenceNames;
 
 //几何模型参数
 typedef struct
 {
-    int32_t form;       // 形状，1 表示立方体，2 表示点面矢量平面，3 表示球体
-    char name[12];      // 几何模型名称，不超过10个字节，支持字母、数字、下划线
+    int32_t form;       ///< 形状，1 表示立方体，2 表示点面矢量平面，3 表示球体
+    char name[12];      ///< 几何模型名称，不超过10个字节，支持字母、数字、下划线
     // 立方体
-    float x_min_limit;    // 立方体基于世界坐标系 X 方向最小位置，单位 m
-    float x_max_limit;    // 立方体基于世界坐标系 X 方向最大位置，单位 m
-    float y_min_limit;    // 立方体基于世界坐标系 Y 方向最小位置，单位 m
-    float y_max_limit;    // 立方体基于世界坐标系 Y 方向最大位置，单位 m
-    float z_min_limit;    // 立方体基于世界坐标系 Z 方向最小位置，单位 m
-    float z_max_limit;    // 立方体基于世界坐标系 Z 方向最大位置，单位 m
+    float x_min_limit;    ///< 立方体基于世界坐标系 X 方向最小位置，单位 m
+    float x_max_limit;    ///< 立方体基于世界坐标系 X 方向最大位置，单位 m
+    float y_min_limit;    ///< 立方体基于世界坐标系 Y 方向最小位置，单位 m
+    float y_max_limit;    ///< 立方体基于世界坐标系 Y 方向最大位置，单位 m
+    float z_min_limit;    ///< 立方体基于世界坐标系 Z 方向最小位置，单位 m
+    float z_max_limit;    ///< 立方体基于世界坐标系 Z 方向最大位置，单位 m
     // 点线矢量平面
-    float x1, y1, z1;     // 表示点面矢量平面三点法中的第一个点坐标，单位 m
-    float x2, y2, z2;     // 表示点面矢量平面三点法中的第二个点坐标，单位 m
-    float x3, y3, z3;     // 表示点面矢量平面三点法中的第三个点坐标，单位 m
+    float x1, y1, z1;     ///< 表示点面矢量平面三点法中的第一个点坐标，单位 m
+    float x2, y2, z2;     ///< 表示点面矢量平面三点法中的第二个点坐标，单位 m
+    float x3, y3, z3;     ///< 表示点面矢量平面三点法中的第三个点坐标，单位 m
     // 球体
-    float radius;     // 表示半径，单位 0.001m
-    float x, y, z;    // 表示球心在世界坐标系 X 轴、Y轴、Z轴的坐标，单位 m
+    float radius;     ///< 表示半径，单位 0.001m
+    float x, y, z;    ///< 表示球心在世界坐标系 X 轴、Y轴、Z轴的坐标，单位 m
 }ElectronicFenceConfig;
 
 // 几何模型参数列表-适配matlab
@@ -336,13 +380,13 @@ typedef struct
 //夹爪状态
 typedef struct
 {
-    bool enable_state;  // 夹爪使能标志，0 表示未使能，1 表示使能
-    bool status;         // 夹爪在线状态，0 表示离线， 1表示在线
-    int32_t error;          // 夹爪错误信息，低8位表示夹爪内部的错误信息bit5-7 保留bit4 内部通bit3 驱动器bit2 过流 bit1 过温bit0 堵转
-    int32_t mode;           // 当前工作状态：1 夹爪张开到最大且空闲，2 夹爪闭合到最小且空闲，3 夹爪停止且空闲，4 夹爪正在闭合，5 夹爪正在张开，6 夹爪闭合过程中遇到力控停止
-    int32_t current_force;  // 夹爪当前的压力，单位g
-    int32_t temperature;    // 当前温度，单位℃
-    int32_t actpos;         // 夹爪开口度
+    bool enable_state;  ///< 夹爪使能标志，0 表示未使能，1 表示使能
+    bool status;         ///< 夹爪在线状态，0 表示离线， 1表示在线
+    int32_t error;          ///< 夹爪错误信息，低8位表示夹爪内部的错误信息bit5-7 保留bit4 内部通bit3 驱动器bit2 过流 bit1 过温bit0 堵转
+    int32_t mode;           ///< 当前工作状态：1 夹爪张开到最大且空闲，2 夹爪闭合到最小且空闲，3 夹爪停止且空闲，4 夹爪正在闭合，5 夹爪正在张开，6 夹爪闭合过程中遇到力控停止
+    int32_t current_force;  ///< 夹爪当前的压力，单位g
+    int32_t temperature;    ///< 当前温度，单位℃
+    int32_t actpos;         ///< 夹爪开口度
 }GripperState;
 
 typedef struct{
@@ -376,45 +420,45 @@ typedef struct
 // 定义包络参数结构体
 typedef struct
 {
-    char name[12];      // 工具包络球体的名称，1-10 个字节，支持字母数字下划线
-    float radius;     // 工具包络球体的半径，单位 0.001m
-    float x;      // 工具包络球体球心基于末端法兰坐标系的 X 轴坐标，单位 m
-    float y;      // 工具包络球体球心基于末端法兰坐标系的 Y 轴坐标，单位 m
-    float z;      // 工具包络球体球心基于末端法兰坐标系的 Z 轴坐标，单位 m
+    char name[12];      ///< 工具包络球体的名称，1-10 个字节，支持字母数字下划线
+    float radius;     ///< 工具包络球体的半径，单位 0.001m
+    float x;      ///< 工具包络球体球心基于末端法兰坐标系的 X 轴坐标，单位 m
+    float y;      ///< 工具包络球体球心基于末端法兰坐标系的 Y 轴坐标，单位 m
+    float z;      ///< 工具包络球体球心基于末端法兰坐标系的 Z 轴坐标，单位 m
 }ToolEnvelope;
 
 // 定义包络参数列表结构体
 typedef struct{
-    char tool_name[12];     // 控制器中已存在的工具坐标系名称，如果不存在该字段，则为临时设置当前包络参数
-    ToolEnvelope list[5];       // 包络参数列表，每个工具最多支持 5 个包络球，可以没有包络
-    int count;      // 包络球数量
+    char tool_name[12];     ///< 控制器中已存在的工具坐标系名称，如果不存在该字段，则为临时设置当前包络参数
+    ToolEnvelope list[5];       ///< 包络参数列表，每个工具最多支持 5 个包络球，可以没有包络
+    int count;      ///< 包络球数量
 }ToolEnvelopeList;
 
 // 全局路点结构体
 typedef struct
 {
-    char point_name[16];    // 全局路点的名称
-    float joint[ARM_DOF];   // 全局路点的关节角度
-    Pose pose;              // 全局路点的位置姿态
-    char work_frame[12];    // 工作坐标系名称
-    char tool_frame[12];    // 工具坐标系名称
-    char time[20];          // 路点新增或修改时间
+    char point_name[16];    ///< 全局路点的名称
+    float joint[ARM_DOF];   ///< 全局路点的关节角度
+    Pose pose;              ///< 全局路点的位置姿态
+    char work_frame[12];    ///< 工作坐标系名称
+    char tool_frame[12];    ///< 工具坐标系名称
+    char time[20];          ///< 路点新增或修改时间
 }Waypoint;
 
 // 全局路点列表
 typedef struct{
-    int page_num;       // 页码（全部查询时此参数传NULL）
-    int page_size;      // 每页大小（全部查询时此参数传NULL）
-    int total_size;     // 列表长度
-    char vague_search[32];  // 模糊搜索 （传递此参数可进行模糊查询）
-    Waypoint points_list[100];   // 返回符合的全局路点列表
+    int page_num;       ///< 页码（全部查询时此参数传NULL）
+    int page_size;      ///< 每页大小（全部查询时此参数传NULL）
+    int total_size;     ///< 列表长度
+    char vague_search[32];  ///< 模糊搜索 （传递此参数可进行模糊查询）
+    Waypoint points_list[100];   ///< 返回符合的全局路点列表
 }WaypointsList;
 
 typedef struct {
-    const float* q_in;        // 上一时刻关节角度 单位°
-    const Pose* q_pose;       // 目标位姿
-    float q_out[7];       // 输出的关节角度 单位°
-    uint8_t flag;       // 姿态参数类别：0-四元数；1-欧拉角
+    const float* q_in;        ///< 上一时刻关节角度 单位°
+    const Pose* q_pose;       ///< 目标位姿
+    float q_out[7];       ///< 输出的关节角度 单位°
+    uint8_t flag;       ///< 姿态参数类别：0-四元数；1-欧拉角
 } IK_Params;
 
 typedef struct {
@@ -426,6 +470,26 @@ typedef struct {
     int step_flag;      ///< 设置单步运行方式模式，1-设置单步模式 0-设置正常运动模式
     int auto_start;     ///< 设置默认在线编程文件，1-设置默认  0-设置非默认
 } Send_Project_Params;
+
+typedef struct
+{
+    int joint_speed;   ///< 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+    int lift_state;    //升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+    int expand_state;  ///< 扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
+}UDP_Custom_Config;
+
+/**
+ * @brief 机械臂主动上报接口配置
+ * @ingroup UdpConfig
+ */
+typedef struct {
+    int cycle;      ///< 广播周期，5ms的倍数，-1：不设置，保持之前的状态
+    bool enable;     ///< 使能，是否主动上报
+    int port;       ///< 广播的端口号，-1：不设置，保持之前的状态
+    int force_coordinate;       ///< 系统外受力数据的坐标系，0为传感器坐标系 1为当前工作坐标系 2为当前工具坐标系（力传感器版本支持）-1代表不设置，保持之前的状态
+    char ip[28];       ///< 自定义的上报目标IP地址，空字符串代表不设置，保持之前的状态
+    UDP_Custom_Config custom;       ///< 自定义项内容
+} Realtime_Push_Config;
 
 typedef void (*RobotStatusListener)(RobotStatus data);
 typedef void (*RM_Callback)(CallbackData data);
