@@ -47,7 +47,7 @@ typedef SOCKET  SOCKHANDLE;
 typedef int SOCKHANDLE;
 #endif
 
-#define  SDK_VERSION (char*)"4.3.4"
+#define  SDK_VERSION (char*)"4.3.5.t1"
 
 typedef unsigned char byte;
 typedef unsigned short u16;
@@ -328,6 +328,17 @@ typedef struct {
     int en_flag;        ///< 当前关节使能状态 ，1 为上使能，0 为掉使能
 } LiftState;
 
+/***
+ * 灵巧手状态
+ *
+ */
+typedef struct {
+    int hand_pos;         ///< 表示灵巧手自由度大小，0-1000，无量纲
+    float hand_force;            ///< 表示灵巧手自由度电流，单位mN
+    int hand_state;        ///< 表示灵巧手自由度状态
+    int hand_err;       ///< 表示灵巧手系统错误
+} HandState;
+
 /**
  * UDP接口实时机械臂状态上报
  */
@@ -341,6 +352,7 @@ typedef struct {
     Pose waypoint;      ///< 当前路点
     LiftState liftState;      ///< 升降关节数据
     ExpandState expandState;      ///< 扩展关节数据
+    HandState handState;         ///< 灵巧手数据
 } RobotStatus;
 
 
@@ -469,13 +481,15 @@ typedef struct {
     int save_id;        ///< 保存到控制器中的编号
     int step_flag;      ///< 设置单步运行方式模式，1-设置单步模式 0-设置正常运动模式
     int auto_start;     ///< 设置默认在线编程文件，1-设置默认  0-设置非默认
+    int project_type;   ///< 下发文件类型。0-在线编程文件，1-拖动示教轨迹文件
 } Send_Project_Params;
 
 typedef struct
 {
     int joint_speed;   ///< 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
-    int lift_state;    //升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+    int lift_state;    ///< 升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
     int expand_state;  ///< 扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
+    int hand_state;    ///< 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
 }UDP_Custom_Config;
 
 /**
@@ -490,6 +504,46 @@ typedef struct {
     char ip[28];       ///< 自定义的上报目标IP地址，空字符串代表不设置，保持之前的状态
     UDP_Custom_Config custom;       ///< 自定义项内容
 } Realtime_Push_Config;
+
+
+/**
+ * @brief 复合模式拖动示教参数
+ *
+ */
+typedef struct{
+    int free_axes[6];       ///< 自由驱动方向[x,y,z,rx,ry,rz]，0-在参考坐标系对应方向轴上不可拖动，1-在参考坐标系对应方向轴上可拖动
+    int frame;              ///< 参考坐标系，0-工作坐标系 1-工具坐标系。
+    int singular_wall;      ///< 仅在六维力模式拖动示教中生效，用于指定是否开启拖动奇异墙，0表示关闭拖动奇异墙，1表示开启拖动奇异墙，若无配置参数，默认启动拖动奇异墙
+}MultiDragTeach;
+
+/**
+ * @brief 力位混合控制参数
+ *
+ */
+typedef struct
+{
+    int sensor;            ///< 传感器，0-一维力；1-六维力
+    int mode;              ///< 0-基坐标系力控；1-工具坐标系力控；
+    int control_mode[6];       ///< 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 5-浮动+运动模式 6-弹簧+运动模式 7-力跟踪+运动模式 8-姿态自适应模式
+    float desired_force[6];     ///< 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
+    float limit_vel[6];     ///< 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
+}ForcePosition;
+/**
+ * @brief 透传力位混合补偿参数
+ *
+ */
+typedef struct
+{
+    int flag;          ///< 0-下发目标角度，1-下发目标位姿
+    Pose pose;         ///< 当前坐标系下的目标位姿，支持四元数/欧拉角表示姿态。位置精度：0.001mm，欧拉角表示姿态，姿态精度：0.001rad，四元数方式表示姿态，姿态精度：0.000001
+    float joint[ARM_DOF];       ///< 目标关节角度，单位：°，精度：0.001°
+    int sensor;            ///< 传感器，0-一维力；1-六维力
+    int mode;              ///< 0-基坐标系力控；1-工具坐标系力控；
+    bool follow;            ///< 表示驱动器的运动跟随效果，true 为高跟随，false 为低跟随。
+    int control_mode[6];       ///< 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 5-浮动+运动模式 6-弹簧+运动模式 7-力跟踪+运动模式 8-姿态自适应模式
+    float desired_force[6];     ///< 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
+    float limit_vel[6];     ///< 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
+}ForcePositionMove;
 
 typedef void (*RobotStatusListener)(RobotStatus data);
 typedef void (*RM_Callback)(CallbackData data);
@@ -510,6 +564,8 @@ typedef void (*RM_Callback)(CallbackData data);
 #define ARM_75      75
 #define ARM_ECO62   62
 #define ARM_GEN72   72
+#define ARM_ECO63   634
+
 
 // 是否打印日志
 #define RM_DISPLAY_LOG 0  // 0 不打印, 1打印

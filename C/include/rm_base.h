@@ -17,7 +17,7 @@ extern "C" {
 
 ///
 /// \brief RM_API_Init              API初始化
-/// \param dev_mode                 目标设备型号使用宏定义ARM_65/ARM_75/ARM_63_1/ARM_63_2/ARM_ECO_65/ARM_GEN72
+/// \param dev_mode                 目标设备型号使用宏定义ARM_65/ARM_75/ARM_63_2/ARM_ECO_65/ARM_ECO62/ARM_GEN72/ARM_ECO63
 ///                                 若传入型号非法，则默认机械臂为六轴。
 /// \param pCallback                用于接收透传接口回调函数, 不需要可以传入NULL
 ///  RM_APISHARED_EXPORT
@@ -727,6 +727,22 @@ RM_BASESHARED_EXPORT int Movej_CANFD(SOCKHANDLE ArmSocket, const float *joint, b
 RM_BASESHARED_EXPORT int Movep_CANFD(SOCKHANDLE ArmSocket, Pose pose, bool follow);
 
 ///
+/// \brief Movej_Follow 关节空间跟随运动
+/// \param ArmSocket socket句柄
+/// \param joint 关节1~7目标角度数组，单位°
+/// \return 0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Movej_Follow(SOCKHANDLE ArmSocket, const float *joint);
+
+///
+/// \brief Movep_Follow 笛卡尔空间跟随运动
+/// \param ArmSocket socket句柄
+/// \param pose 位姿 (优先采用四元数表达)
+/// \return 0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Movep_Follow(SOCKHANDLE ArmSocket, Pose pose);
+
+///
 /// \brief MoveRotate_Cmd               计算环绕运动位姿并按照结果运动
 /// \param ArmSocket                    socket句柄
 /// \param rotateAxis                   旋转轴: 1:x轴, 2:y轴, 3:z轴
@@ -1252,7 +1268,33 @@ RM_BASESHARED_EXPORT int Drag_Trajectory_Origin(SOCKHANDLE ArmSocket, bool block
 /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
 ///
 RM_BASESHARED_EXPORT int Start_Multi_Drag_Teach(SOCKHANDLE ArmSocket, int mode,int singular_wall,bool block);
-
+///
+/// \brief 开始复合模式拖动示教-新参数
+/// \param ArmSocket                    socket句柄
+/// \param teach_state 复合拖动示教参数
+/// \return 0-成功，失败返回:错误码, rm_define.h查询.
+/// \attention 失败的可能原因:
+///          - 当前机械臂非六维力版本（六维力拖动示教）。
+///          - 机械臂当前处于 IO 急停状态
+///          - 机械臂当前处于仿真模式
+///          - 输入参数有误
+///          - 使用六维力模式拖动示教时，当前已处于奇异区
+///
+RM_BASESHARED_EXPORT int Start_Multi_Drag_Teach_New(SOCKHANDLE ArmSocket,MultiDragTeach teach_state);
+///
+/// \brief Set_Drag_Teach_Sensitivity 设置电流环拖动示教灵敏度
+/// \param ArmSocket                    socket句柄
+/// \param grade 等级，0到100，表示0~100%，当设置为100时保持初始状态
+/// \return 0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Set_Drag_Teach_Sensitivity(SOCKHANDLE ArmSocket, int grade);
+///
+/// \brief Get_Drag_Teach_Sensitivity 获取电流环拖动示教灵敏度
+/// \param ArmSocket                    socket句柄
+/// \param grade等级，0到100，表示0~100%，当设置为100时保持初始状态
+/// \return 0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Get_Drag_Teach_Sensitivity(SOCKHANDLE ArmSocket, int *grade);
 ///
 /// \brief Set_Force_Postion            力位混合控制
 /// \param ArmSocket                    socket句柄
@@ -1264,7 +1306,13 @@ RM_BASESHARED_EXPORT int Start_Multi_Drag_Teach(SOCKHANDLE ArmSocket, int mode,i
 /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
 ///
 RM_BASESHARED_EXPORT int Set_Force_Postion(SOCKHANDLE ArmSocket, int sensor, int mode, int direction, int N, bool block);
-
+///
+/// \brief Set_Force_Postion_New            力位混合控制-新参数
+/// \param ArmSocket                    socket句柄
+/// \param param                        力位混合控制参数
+/// \return                             0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Set_Force_Postion_New(SOCKHANDLE ArmSocket, ForcePosition param);
 ///
 /// \brief Stop_Force_Postion           结束力位混合控制
 /// \param ArmSocket socket句柄
@@ -1682,6 +1730,14 @@ RM_BASESHARED_EXPORT int Force_Position_Move_Joint(SOCKHANDLE ArmSocket, const f
                                                    byte mode,int dir,float force, bool follow);
 
 ///
+/// \brief Force_Position_Move          透传力位混合补偿-新参数
+/// \param ArmSocket                    socket句柄
+/// \param param                         透传力位混合补偿参数
+/// \return                             0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Force_Position_Move(SOCKHANDLE ArmSocket, ForcePositionMove param);
+
+///
 /// \brief Stop_Force_Position_Move     停止透传力位混合控制补偿模式
 /// \param ArmSocket                    socket句柄
 /// \param block                        RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
@@ -1907,7 +1963,7 @@ RM_BASESHARED_EXPORT int Set_Net_Default(SOCKHANDLE ArmSocket);
 /// \param io_mode                      0-通用输入模式，1-通用输出模式、2-输入开始功能复用模式、3-输入暂停功能复用模式、4-输入继续功能复用模式、5-输入急停功能复用模式、
 ///                                     6-输入进入电流环拖动复用模式、7-输入进入力只动位置拖动模式（六维力版本可配置）、8-输入进入力只动姿态拖动模式（六维力版本可配置）、
 ///                                     9-输入进入力位姿结合拖动复用模式（六维力版本可配置）、10-输入外部轴最大软限位复用模式（外部轴模式可配置）、
-///                                     11-输入外部轴最小软限位复用模式（外部轴模式可配置）
+///                                     11-输入外部轴最小软限位复用模式（外部轴模式可配置）、12-输入初始位姿功能复用模式、13-输出碰撞功能复用模式。
 /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
 ///
 RM_BASESHARED_EXPORT int Set_IO_Mode(SOCKHANDLE ArmSocket, byte io_num, byte io_mode);
@@ -2316,7 +2372,14 @@ RM_BASESHARED_EXPORT void Algo_Get_Angle(float* x, float* y, float* z);
 RM_BASESHARED_EXPORT Pose Algo_Forward_Kinematics(const float* const joint);
 
 ///
-/// \brief Algo_Inverse_Kinematics  逆解函数
+/// \brief Algo_Set_Redundant_Parameter_Traversal_Mode 设置逆解求解模式
+/// \param mode true：遍历模式，冗余参数遍历的求解策略。适于当前位姿跟要求解的位姿差别特别大的应用场景，如MOVJ_P、位姿编辑等，耗时较长
+///             false：单步模式，自动调整冗余参数的求解策略。适于当前位姿跟要求解的位姿差别特别小、连续周期控制的场景，如笛卡尔空间规划的位姿求解等，耗时短
+///
+RM_BASESHARED_EXPORT void Algo_Set_Redundant_Parameter_Traversal_Mode(bool mode);
+
+///
+/// \brief Algo_Inverse_Kinematics  逆解函数，默认单步模式，可使用Algo_Set_Redundant_Parameter_Traversal_Mode接口设置逆解求解模式
 /// \param q_in                     上一时刻关节角度 单位°
 /// \param q_pose                   目标位姿
 /// \param q_out                    输出的关节角度 单位°

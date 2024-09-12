@@ -18,7 +18,7 @@ public:
 
     ///
     /// \brief Service_RM_API_Init              API初始化
-    /// \param dev_mode                 目标设备型号ARM_65/ARM_75/ARM_63_1/ARM_63_2/ARM_ECO65/ARM_GEN72
+    /// \param dev_mode                 目标设备型号ARM_65/ARM_75/ARM_63_2/ARM_ECO62/ARM_ECO65/ARM_GEN72/ARM_ECO63
     /// \param pCallback                用于接收透传接口回调函数, 不需要可以传入NULL
     ///  RM_APISHARED_EXPORT
     ///
@@ -768,7 +768,22 @@ public:
     /// 只要控制器运行正常并且目标角度在可达范围内，机械臂立即返回成功指令，此时机械臂可能仍在运行；
     /// 若有错误，立即返回失败指令。
     RM_SERVICESHARED_EXPORT int Service_Movej_CANFD(SOCKHANDLE ArmSocket, const float *joint, bool follow, float expand);
+    ///
+    /// \brief Service_Movej_Follow 关节空间跟随运动
+    /// \param ArmSocket socket句柄
+    /// \param joint 关节1~7目标角度数组，单位°
+    /// \return 0-成功，失败返回:错误码, rm_define.h查询.
+    /// 只要控制器运行正常并且目标角度在可达范围内，机械臂立即返回成功指令，此时机械臂可能仍在运行；
+    /// 若有错误，立即返回失败指令。
+    RM_SERVICESHARED_EXPORT int Service_Movej_Follow(SOCKHANDLE ArmSocket, const float *joint);
 
+    ///
+    /// \brief Service_Movep_Follow 笛卡尔空间跟随运动
+    /// \param ArmSocket socket句柄
+    /// \param pose 位姿 (优先采用四元数表达)
+    /// \return 0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Movep_Follow(SOCKHANDLE ArmSocket, Pose pose);
     ///
     /// \brief Movep_CANFD 位姿不经规划，直接通过CANFD透传给机械臂
     /// \param ArmSocket socket句柄
@@ -1288,9 +1303,35 @@ public:
     /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Start_Multi_Drag_Teach(SOCKHANDLE ArmSocket, int mode,int singular_wall,bool block);
-
     ///
-    /// \brief Set_Force_Postion            力位混合控制
+    /// \brief 开始复合模式拖动示教-新参数
+    /// \param ArmSocket                    socket句柄
+    /// \param teach_state 复合拖动示教参数
+    /// \return 0-成功，失败返回:错误码, rm_define.h查询.
+    /// \attention 失败的可能原因:
+    ///          - 当前机械臂非六维力版本（六维力拖动示教）。
+    ///          - 机械臂当前处于 IO 急停状态
+    ///          - 机械臂当前处于仿真模式
+    ///          - 输入参数有误
+    ///          - 使用六维力模式拖动示教时，当前已处于奇异区
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Start_Multi_Drag_Teach_New(SOCKHANDLE ArmSocket,MultiDragTeach teach_state);
+    ///
+    /// \brief Service_Set_Drag_Teach_Sensitivity 设置电流环拖动示教灵敏度
+    /// \param ArmSocket                    socket句柄
+    /// \param grade 等级，0到100，表示0~100%，当设置为100时保持初始状态
+    /// \return 0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Set_Drag_Teach_Sensitivity(SOCKHANDLE ArmSocket, int grade);
+    ///
+    /// \brief Service_Get_Drag_Teach_Sensitivity 获取电流环拖动示教灵敏度
+    /// \param ArmSocket                    socket句柄
+    /// \param grade等级，0到100，表示0~100%，当设置为100时保持初始状态
+    /// \return 0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Get_Drag_Teach_Sensitivity(SOCKHANDLE ArmSocket, int *grade);
+    ///
+    /// \brief Service_Set_Force_Postion            力位混合控制
     /// \param ArmSocket                    socket句柄
     /// \param sensor                       0-一维力；1-六维力
     /// \param mode                         0-基坐标系力控；1-工具坐标系力控；
@@ -1301,7 +1342,13 @@ public:
     ///
     RM_SERVICESHARED_EXPORT int Service_Set_Force_Postion(SOCKHANDLE ArmSocket, int sensor, int mode,
                                                           int direction, int N, bool block);
-
+    ///
+    /// \brief Service_Set_Force_Postion_New            力位混合控制-新参数
+    /// \param ArmSocket                    socket句柄
+    /// \param param                        力位混合控制参数
+    /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Set_Force_Postion_New(SOCKHANDLE ArmSocket, ForcePosition param);
     ///
     /// \brief Service_Stop_Force_Postion   结束力位混合控制
     /// \param ArmSocket socket句柄
@@ -1309,7 +1356,6 @@ public:
     /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Stop_Force_Postion(SOCKHANDLE ArmSocket, bool block);
-
     ///
     /// \brief Service_Clear_Force_Data 将六维力数据清零，即后续获得的所有数据都是基于当前数据的偏移量
     /// \param ArmSocket socket句柄
@@ -1317,7 +1363,6 @@ public:
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Clear_Force_Data(SOCKHANDLE ArmSocket, bool block);
-
     ///
     /// \brief Service_Get_Force_Data 查询当前六维力传感器得到的力和力矩信息，若要周期获取力数据
     ///                               周期不能小于50ms。
@@ -1761,6 +1806,13 @@ public:
                                                                   byte mode, int dir, float force, bool follow);
 
     ///
+    /// \brief Service_Force_Position_Move          透传力位混合补偿-新参数
+    /// \param ArmSocket                    socket句柄
+    /// \param param                         透传力位混合补偿参数
+    /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Force_Position_Move(SOCKHANDLE ArmSocket, ForcePositionMove param);
+    ///
     /// \brief Service_Stop_Force_Position_Move     停止透传力位混合控制补偿模式
     /// \param ArmSocket                    socket句柄
     /// \param block                        RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
@@ -1994,7 +2046,7 @@ public:
     /// \param io_mode                      0-通用输入模式，1-通用输出模式、2-输入开始功能复用模式、3-输入暂停功能复用模式、4-输入继续功能复用模式、5-输入急停功能复用模式、
     ///                                     6-输入进入电流环拖动复用模式、7-输入进入力只动位置拖动模式（六维力版本可配置）、8-输入进入力只动姿态拖动模式（六维力版本可配置）、
     ///                                     9-输入进入力位姿结合拖动复用模式（六维力版本可配置）、10-输入外部轴最大软限位复用模式（外部轴模式可配置）、
-    ///                                     11-输入外部轴最小软限位复用模式（外部轴模式可配置）
+    ///                                     11-输入外部轴最小软限位复用模式（外部轴模式可配置）、12-输入初始位姿功能复用模式、13-输出碰撞功能复用模式。
     /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Set_IO_Mode(SOCKHANDLE ArmSocket, byte io_num, byte io_mode);
@@ -2395,9 +2447,15 @@ public:
     /// \return Pose                    目标位姿
     ///
     RM_SERVICESHARED_EXPORT Pose Service_Algo_Forward_Kinematics(const float* const joint);
+    ///
+    /// \brief Algo_Set_Redundant_Parameter_Traversal_Mode 设置逆解求解模式
+    /// \param mode true：遍历模式，冗余参数遍历的求解策略。适于当前位姿跟要求解的位姿差别特别大的应用场景，如MOVJ_P、位姿编辑等，耗时较长
+    ///             false：单步模式，自动调整冗余参数的求解策略。适于当前位姿跟要求解的位姿差别特别小、连续周期控制的场景，如笛卡尔空间规划的位姿求解等，耗时短
+    ///
+    RM_SERVICESHARED_EXPORT void Service_Algo_Set_Redundant_Parameter_Traversal_Mode(bool mode);
 
     ///
-    /// \brief Algo_Inverse_Kinematics  逆解函数
+    /// \brief Algo_Inverse_Kinematics  逆解函数，默认单步模式，可使用Algo_Set_Redundant_Parameter_Traversal_Mode接口设置逆解求解模式
     /// \param q_in                     上一时刻关节角度 单位°
     /// \param q_pose                   目标位姿
     /// \param q_out                    输出的关节角度 单位°

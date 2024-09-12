@@ -32,6 +32,7 @@ elif sys.platform == "win32":
         dllPath = os.path.join(dllPath, 'win_64', 'RM_Base.dll')
     else:
         dllPath = os.path.join(dllPath, 'win_32', 'RM_Base.dll')
+        print(dllPath)
 else:
     dllPath = os.path.join(dllPath, 'linux_arm', 'libRM_Base.so.1.0.0')
 
@@ -46,6 +47,7 @@ ECO65 = 651
 RM75 = 75
 ECO62 = 62
 GEN72 = 72
+ECO63 = 634
 
 ARM_DOF = 7
 MOVEJ_CANFD_CB = 0x0001  # 角度透传非阻
@@ -85,10 +87,11 @@ class RobotType(IntEnum):
     RML63I = 2
     RML63II = 3
     RML63III = 4
-    NANO = 5
-    ECO65 = 6
-    ECO62 = 7
-    GEN72 = 8
+    ECO65 = 5
+    ECO62 = 6
+    GEN72 = 7
+    ECO63 = 8
+    UNIVERSAL = 9
 
 
 class SensorType(IntEnum):
@@ -224,6 +227,7 @@ class ForceData(ctypes.Structure):
         ("coordinate", ctypes.c_int)
     ]
 
+
 class ExpandState(ctypes.Structure):
     _fields_ = [
         ("pos", ctypes.c_float),      # 当前角度  精度 0.001°
@@ -252,9 +256,7 @@ class RobotStatus(ctypes.Structure):
         ("joint_status", JointStatus),  # 当前关节状态
         ("force_sensor", ForceData),  # 力数据
         ("sys_err", ctypes.c_uint16),  # 系统错误吗
-        ("waypoint", Pose),  # 路点信息
-        ("liftState", LiftState) , # 升降关节数据
-        ("expandState", ExpandState) , # 扩展关节数据
+        ("waypoint", Pose)  # 路点信息
     ]
 
 
@@ -266,6 +268,7 @@ class UDP_Custom_Config(ctypes.Structure):
         ("joint_speed", ctypes.c_int),   # 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         ("lift_state", ctypes.c_int),    # 升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         ("expand_state", ctypes.c_int),  # 扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状
+        ("hand_state", ctypes.c_int),    # 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
     ]
 
 class Realtime_Push_Config(ctypes.Structure):
@@ -278,7 +281,35 @@ class Realtime_Push_Config(ctypes.Structure):
         ("custom", UDP_Custom_Config)       # 自定义项内容
     ]
 
+class MultiDragTeach(ctypes.Structure):
+    _fields_ = [
+        ('free_axes', ctypes.c_int * int(6)),
+        ('frame', ctypes.c_int),
+        ('singular_wall', ctypes.c_int),
+    ]
 
+
+class ForcePosition(ctypes.Structure):
+    _fields_ = [
+        ('sensor', ctypes.c_int),
+        ('mode', ctypes.c_int),
+        ('control_mode', ctypes.c_int * int(6)),
+        ('desired_force', ctypes.c_float * int(6)),
+        ('limit_vel', ctypes.c_float * int(6)),
+    ]
+
+class ForcePositionMove(ctypes.Structure):
+    _fields_ = [
+        ('flag', ctypes.c_int),
+        ('pose', Pose),
+        ('joint', ctypes.c_float * int(7)),
+        ('sensor', ctypes.c_int),
+        ('mode', ctypes.c_int),
+        ('follow', ctypes.c_bool),
+        ('control_mode', ctypes.c_int * int(6)),
+        ('desired_force', ctypes.c_float * int(6)),
+        ('limit_vel', ctypes.c_float * int(6)),
+    ]
 
 class TrajectoryData(ctypes.Structure):
     _fields_ = [
@@ -2004,7 +2035,6 @@ class Initial_Pose():
 
         return tag, x.value, y.value, z.value
 
-
 class Move_Plan:
     def Movej_Cmd(self, joint, v, r, trajectory_connect=0, block=True):
         """
@@ -2194,6 +2224,53 @@ class Move_Plan:
         self.pDll.Movep_CANFD.argtypes = (ctypes.c_int, Pose, ctypes.c_bool)
         self.pDll.Movep_CANFD.restype = self.check_error
         tag = self.pDll.Movep_CANFD(self.nSocket, po1, follow)
+
+        return tag
+
+    def Movej_Follow(self, joint):
+        """
+        Movej_Follow 关节空间跟随运动
+        :param joint: 关节1~7目标角度数组
+        :return: 0-成功，失败返回:错误码, rm_define.h查询.
+        """
+
+        if self.code == 6:
+
+            self.pDll.Movej_Follow.argtypes = (
+                ctypes.c_int, ctypes.c_float * 6)
+            self.pDll.Movej_Follow.restype = self.check_error
+
+            joints = (ctypes.c_float * 6)(*joint)
+
+        else:
+            self.pDll.Movej_Follow.argtypes = (
+                ctypes.c_int, ctypes.c_float * 7)
+            self.pDll.Movej_Follow.restype = self.check_error
+
+            joints = (ctypes.c_float * 7)(*joint)
+
+        tag = self.pDll.Movej_Follow(self.nSocket, joints)
+
+        return tag
+
+    def Movep_Follow(self, pose):
+        """
+        Movep_Follow 笛卡尔空间跟随运动
+        :param pose: 目标位姿
+        :return: 0-成功，失败返回:错误码, rm_define.h查询.
+        """
+        if len(pose) > 6:
+            po1 = Pose()
+            po1.position = Pos(*pose[:3])
+            po1.quaternion = Quat(*pose[3:])
+        else:
+            po1 = Pose()
+            po1.position = Pos(*pose[:3])
+            po1.euler = Euler(*pose[3:])
+
+        self.pDll.Movep_Follow.argtypes = (ctypes.c_int, Pose)
+        self.pDll.Movep_Follow.restype = self.check_error
+        tag = self.pDll.Movep_Follow(self.nSocket, po1)
 
         return tag
 
@@ -3038,7 +3115,10 @@ class Set_IO():
         """
         设置数字IO模式[-I]
         :param io_num: IO端口号，范围：1~2
-        :param io_mode: 模式，0-输入状态，1-输出状态,2-输入开始功能复用模式，3-输入暂停功能复用模式，4-输入继续功能复用模式，5-输入急停功能复用模式
+        :param io_mode: 模式，0-输入状态，1-输出状态,2-输入开始功能复用模式，3-输入暂停功能复用模式，4-输入继续功能复用模式，5-输入急停功能复用模式、
+                            6-输入进入电流环拖动复用模式、7-输入进入力只动位置拖动模式（六维力版本可配置）、8-输入进入力只动姿态拖动模式（六维力版本可配置）、
+                            9-输入进入力位姿结合拖动复用模式（六维力版本可配置）、10-输入外部轴最大软限位复用模式（外部轴模式可配置）、
+                            11-输入外部轴最小软限位复用模式（外部轴模式可配置）、12-输入初始位姿功能复用模式、13-输出碰撞功能复用模式。
         :return: 0-成功，失败返回:错误码, rm_define.h查询.
         """
 
@@ -3476,6 +3556,39 @@ class Set_Gripper():
 
 
 class Drag_Teach():
+    def Set_Drag_Teach_Sensitivity(self, grade):
+        """
+        设置电流环拖动示教灵敏度
+
+        Args:
+            grade (int): 等级，0到100，表示0~100%，当设置为100时保持初始状态
+
+        Returns:
+            int: 0-成功，失败返回:错误码, rm_define.h查询.
+        """
+        self.pDll.Set_Drag_Teach_Sensitivity.argtypes = [ctypes.c_int, ctypes.c_int]
+        self.pDll.Set_Drag_Teach_Sensitivity.restype = self.check_error
+
+        tag = self.pDll.Set_Drag_Teach_Sensitivity(self.handle, grade)
+        return tag
+
+    def Get_Drag_Teach_Sensitivity(self) :
+        """
+        获取电流环拖动示教灵敏度
+
+        Returns:
+            tuple[int, int]: 包含两个元素的元组。
+            - int: 0-成功，失败返回:错误码, rm_define.h查询.
+            - int: 等级，0到100，表示0~100%，当设置为100时保持初始状态
+        """
+        self.pDll.Get_Drag_Teach_Sensitivity.restype = self.check_error
+        self.pDll.Get_Drag_Teach_Sensitivity.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
+   
+        grade = ctypes.c_int()
+        tag = self.pDll.Get_Drag_Teach_Sensitivity(self.handle, ctypes.byref(grade))
+        return tag, grade.value
+    
+
     def Start_Drag_Teach(self, block=True):
         """
         Start_Drag_Teach 开始控制机械臂进入拖动示教模式
@@ -3608,7 +3721,7 @@ class Drag_Teach():
         Start_Multi_Drag_Teach       开始复合模式拖动示教
         :param mode: 拖动示教模式 0-电流环模式，1-使用末端六维力，只动位置，2-使用末端六维力 ，只动姿态， 3-使用末端六维力，位置和姿态同时动
         :param block:RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
-        :return:
+        :return:0-成功，失败返回:错误码, rm_define.h查询.
         """
 
         self.pDll.Start_Multi_Drag_Teach.argtypes = (
@@ -3618,6 +3731,23 @@ class Drag_Teach():
         tag = self.pDll.Start_Multi_Drag_Teach(
             self.nSocket, mode, singular_wall, block)
         logger_.info(f'Start_Multi_Drag_Teach:{tag}')
+
+        return tag
+    
+    def Start_Multi_Drag_Teach_New(self, teach_start):
+        """
+        Start_Multi_Drag_Teach_New       开始复合模式拖动示教-新参数
+        :param teach_start: 复合拖动示教参数
+        :return: 0-成功，失败返回:错误码, rm_define.h查询.
+        """
+
+        self.pDll.Start_Multi_Drag_Teach_New.argtypes = (
+            ctypes.c_int, MultiDragTeach)
+        self.pDll.Start_Multi_Drag_Teach_New.restype = self.check_error
+
+        tag = self.pDll.Start_Multi_Drag_Teach_New(
+            self.nSocket, teach_start)
+        logger_.info(f'Start_Multi_Drag_Teach_New:{tag}')
 
         return tag
 
@@ -3640,6 +3770,27 @@ class Drag_Teach():
             self.nSocket, sensor, mode, direction, N, block)
 
         logger_.info(f'Set_Force_Postion:{tag}')
+
+        return tag
+    
+    def Set_Force_Postion_New(self, param):
+        """力位混合控制-新参数
+
+        Args:
+            param (ForcePosition): 力位混合控制参数
+
+        Returns:
+            int: 0-成功，失败返回:错误码, rm_define.h查询.
+        """
+
+        self.pDll.Set_Force_Postion_New.argtypes = (
+            ctypes.c_int, ForcePosition)
+        self.pDll.Set_Force_Postion_New.restype = self.check_error
+
+        tag = self.pDll.Set_Force_Postion_New(
+            self.nSocket, param)
+
+        logger_.info(f'Set_Force_Postion_New:{tag}')
 
         return tag
 
@@ -4482,14 +4633,13 @@ class Expand():
 
 class UDP():
     def Get_Realtime_Push(self, retry=0):
-        """
-        Get_Realtime_Push        获取主动上报接口配置
-        :param retry:
-        :return:
-        cycle                        获取广播周期，为5ms的倍数
-        port                         获取广播的端口号
-        enable                       获取使能，是否使能主动上上报
-        error_code                   0-成功，失败返回:错误码, rm_define.h查询.
+        """获取主动上报接口配置
+
+        Args:
+            retry (int, optional): 失败后重试次数. Defaults to 0.
+
+        Returns:
+            Realtime_Push_Config: 主动上报接口配置信息
         """
 
         self.pDll.Get_Realtime_Push.argtypes = (ctypes.c_int, ctypes.POINTER(Realtime_Push_Config))
@@ -4508,7 +4658,7 @@ class UDP():
 
         return error_code, config
 
-    def Set_Realtime_Push(self, cycle=-1, port=-1, enable=True, force_coordinate=-1, ip=None, joint_speed=-1, lift_state=-1, expand_state=-1):
+    def Set_Realtime_Push(self, cycle=-1, port=-1, enable=True, force_coordinate=-1, ip=None, joint_speed=-1, lift_state=-1, expand_state=-1, hand_state=-1):
         """
         Set_Realtime_Push            设置主动上报接口配置
         :param cycle:               设置广播周期，为5ms的倍数
@@ -4519,6 +4669,7 @@ class UDP():
         joint_speed                 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         lift_state                  升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         expand_state                扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        hand_state                  灵巧手信息1：上报；0：关闭上报；-1：不设置，保持之前的状态
         :return:                    0-成功，失败返回:错误码, rm_define.h查询.
         """
         self.pDll.Set_Realtime_Push.argtypes = (ctypes.c_int, Realtime_Push_Config)
@@ -4610,6 +4761,24 @@ class Force_Position():
 
         return tag
 
+    def Force_Position_Move(self, param):
+        """透传力位混合补偿-新参数
+
+        Args:
+            param (ForcePositionMove): 透传力位混合补偿参数
+
+        Returns:
+            int: 0-成功，失败返回：错误码，rm_define.h查询
+        """
+
+        self.pDll.Force_Position_Move.argtypes = (ctypes.c_int, ForcePositionMove)
+        self.pDll.Force_Position_Move.restype = self.check_error
+
+        tag = self.pDll.Force_Position_Move(
+            self.nSocket, param)
+
+        return tag
+
     def Stop_Force_Position_Move(self, block=True):
         """
         Stop_Force_Position_Move          停止透传力位混合控制补偿模式
@@ -4683,9 +4852,22 @@ class Algo:
         return pose
 
     @classmethod
+    def Algo_Set_Redundant_Parameter_Traversal_Mode(cls, mode):
+        """设置逆解求解模式
+
+        Args:
+            mode (bool): 
+                - true：遍历模式，冗余参数遍历的求解策略。适于当前位姿跟要求解的位姿差别特别大的应用场景，如MOVJ_P、位姿编辑等，耗时较长
+                - false：单步模式，自动调整冗余参数的求解策略。适于当前位姿跟要求解的位姿差别特别小、连续周期控制的场景，如笛卡尔空间规划的位姿求解等，耗时短
+
+        """
+        cls.pDll.Algo_Set_Redundant_Parameter_Traversal_Mode.argtypes = (ctypes.c_bool)
+        cls.pDll.Algo_Set_Redundant_Parameter_Traversal_Mode(mode)
+
+    @classmethod
     def Algo_Inverse_Kinematics(cls, q_in, q_pose, flag):
         """
-        brief Algo_Inverse_Kinematics  逆解函数
+        brief Algo_Inverse_Kinematics  逆解函数，默认单步模式，可使用Algo_Set_Redundant_Parameter_Traversal_Mode接口设置逆解求解模式
         param q_in                     上一时刻关节角度 单位°
         param q_pose                   目标位姿
         param q_out                    输出的关节角度 单位°
@@ -4981,6 +5163,7 @@ class Algo:
         cls.pDll.Algo_Set_ToolFrame.argtypes = [ctypes.POINTER(FRAME)]
 
         cls.pDll.Algo_Set_ToolFrame(ctypes.byref(coord_tool))
+
 
     @classmethod
     def Algo_Get_Curr_ToolFrame(cls):
@@ -5704,6 +5887,13 @@ class Arm(Set_Joint, Get_Joint, Tcp_Config, Tool_Frame, Work_Frame, Arm_State, I
     pDll = ctypes.cdll.LoadLibrary(dllPath)
 
     def __init__(self, dev_mode, ip, pCallback=None):
+        """连接机械臂
+
+        Args:
+            dev_mode (int): 机械臂型号宏定义，RM65/RML63_II/RM75/ECO65/ECO62/GEN72/ECO63
+            ip (str): 机械臂IP地址，机械臂默认IP地址“192.168.1.18”
+            pCallback (CANFD_Callback, optional): 用于接收透传接口回调函数，不适用于I系列. Defaults to None.
+        """
         # RM_Callback = ctypes.CFUNCTYPE(None, CallbackData)
         self.code = dev_mode
         while self.code >= 10:
@@ -5722,13 +5912,13 @@ class Arm(Set_Joint, Get_Joint, Tcp_Config, Tool_Frame, Work_Frame, Arm_State, I
         byteIP = bytes(ip, "gbk")
         self.nSocket = self.pDll.Arm_Socket_Start(byteIP, 8080, 200)  # 连接机械臂
 
-        state = self.pDll.Arm_Socket_State(self.nSocket)  # 查询机械臂连接状态
+        # state = self.pDll.Arm_Socket_State(self.nSocket)  # 查询机械臂连接状态
 
-        if state:
-            logger_.info(f'连接机械臂连接失败:{self.nSocket}')
+        # if state:
+        #     logger_.info(f'连接机械臂连接失败:{self.nSocket}')
 
-        else:
-            logger_.info(f'连接机械臂成功，句柄为:{self.nSocket}')
+        # else:
+        #     logger_.info(f'连接机械臂成功，句柄为:{self.nSocket}')
 
     def Arm_Socket_State(self):
         """
