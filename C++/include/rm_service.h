@@ -1185,8 +1185,9 @@ public:
     /// \brief Service_Set_Gripper_Release 手爪松开
     /// \param ArmSocket socket句柄
     /// \param speed 手爪松开速度 ，范围 1~1000，无单位量纲
-    /// \param block RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
-    /// \param timeout 设置返回超时时间，阻塞模式生效
+    /// \param block RM_NONBLOCK-非阻塞，不接收夹爪到位指令; RM_BLOCK-阻塞，等待控制器返回夹爪到位指令
+    /// \param timeout 非阻塞模式：0-发送后立即返回；其他值-接收设置成功指令后返回；
+    ///                阻塞模式：等待夹爪到位指令超时时间，单位：秒；
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Set_Gripper_Release(SOCKHANDLE ArmSocket, int speed, bool block, int timeout);
@@ -1196,8 +1197,9 @@ public:
     /// \param ArmSocket socket句柄
     /// \param speed 手爪夹取速度 ，范围 1~1000，无单位量纲 无
     /// \param force 力控阈值 ，范围 ：50~1000，无单位量纲 无
-    /// \param block RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
-    /// \param timeout 设置返回超时时间，阻塞模式生效
+    /// \param block RM_NONBLOCK-非阻塞，不接收夹爪到位指令; RM_BLOCK-阻塞，等待控制器返回夹爪到位指令
+    /// \param timeout 非阻塞模式：0-发送后立即返回；其他值-接收设置成功指令后返回；
+    ///                阻塞模式：等待夹爪到位指令超时时间，单位：秒；
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Set_Gripper_Pick(SOCKHANDLE ArmSocket, int speed, int force, bool block, int timeout);
@@ -1207,8 +1209,9 @@ public:
     /// \param ArmSocket socket句柄
     /// \param speed 手爪夹取速度 ，范围 1~1000，无单位量纲 无
     /// \param force 力控阈值 ，范围 ：50~1000，无单位量纲 无
-    /// \param block RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
-    /// \param timeout 设置返回超时时间，阻塞模式生效
+    /// \param block RM_NONBLOCK-非阻塞，不接收夹爪到位指令; RM_BLOCK-阻塞，等待控制器返回夹爪到位指令
+    /// \param timeout 非阻塞模式：0-发送后立即返回；其他值-接收设置成功指令后返回；
+    ///                阻塞模式：等待夹爪到位指令超时时间，单位：秒；
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Set_Gripper_Pick_On(SOCKHANDLE ArmSocket, int speed, int force, bool block, int timeout);
@@ -1217,8 +1220,9 @@ public:
     /// \brief Service_Set_Gripper_Position 设置手爪开口度
     /// \param ArmSocket socket句柄
     /// \param position 手爪开口位置 ，范围 ：1~1000，无单位量纲 无
-    /// \param block RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
-    /// \param timeout 设置返回超时时间，阻塞模式生效
+    /// \param block RM_NONBLOCK-非阻塞，不接收夹爪到位指令; RM_BLOCK-阻塞，等待控制器返回夹爪到位指令
+    /// \param timeout 非阻塞模式：0-发送后立即返回；其他值-接收设置成功指令后返回；
+    ///                阻塞模式：等待夹爪到位指令超时时间，单位：秒；
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Set_Gripper_Position(SOCKHANDLE ArmSocket, int position, bool block, int timeout);

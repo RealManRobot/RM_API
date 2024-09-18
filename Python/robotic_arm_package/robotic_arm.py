@@ -246,6 +246,14 @@ class LiftState(ctypes.Structure):
         ("err_flag", ctypes.c_int),     #驱动错误代码，错误代码类型参考关节错误代码
         ("en_flag", ctypes.c_int)       #当前关节使能状态 ，1 为上使能，0 为掉使能
     ]
+class HandState(ctypes.Structure):
+    _fields_ = [
+        ('hand_pos', ctypes.c_int),     # 表示灵巧手自由度大小，0-1000，无量纲
+        ('hand_force', ctypes.c_float),     # 表示灵巧手自由度电流，单位mN
+        ('hand_state', ctypes.c_int),       # 表示灵巧手当前状态，0: 正在松开, 1: 正在抓取
+        ('hand_err', ctypes.c_int),     # 表示灵巧手系统错误
+    ]
+
 
 # Define the RobotStatus structure
 class RobotStatus(ctypes.Structure):
@@ -256,7 +264,10 @@ class RobotStatus(ctypes.Structure):
         ("joint_status", JointStatus),  # 当前关节状态
         ("force_sensor", ForceData),  # 力数据
         ("sys_err", ctypes.c_uint16),  # 系统错误吗
-        ("waypoint", Pose)  # 路点信息
+        ("waypoint", Pose),  # 路点信息
+        ("liftState", LiftState) , # 升降关节数据
+        ("expandState", ExpandState) , # 扩展关节数据
+        ("handState", HandState) , # 灵巧手数据
     ]
 
 
@@ -283,32 +294,32 @@ class Realtime_Push_Config(ctypes.Structure):
 
 class MultiDragTeach(ctypes.Structure):
     _fields_ = [
-        ('free_axes', ctypes.c_int * int(6)),
-        ('frame', ctypes.c_int),
-        ('singular_wall', ctypes.c_int),
+        ('free_axes', ctypes.c_int * int(6)),       # 自由驱动方向，前三个元素表示TCP将按照参考坐标系的x、y、z方向平移拖动，后三个元素表示TCP将按照参考坐标系的rx、ry、rz方向旋转拖动。
+        ('frame', ctypes.c_int),        #参考坐标系，0-工作坐标系 1-工具坐标系。
+        ('singular_wall', ctypes.c_int),        # 仅在六维力模式拖动示教中生效，用于指定是否开启拖动奇异墙，0表示关闭拖动奇异墙，1表示开启拖动奇异墙，若无配置参数，默认启动拖动奇异墙。
     ]
 
 
 class ForcePosition(ctypes.Structure):
     _fields_ = [
-        ('sensor', ctypes.c_int),
-        ('mode', ctypes.c_int),
-        ('control_mode', ctypes.c_int * int(6)),
-        ('desired_force', ctypes.c_float * int(6)),
-        ('limit_vel', ctypes.c_float * int(6)),
+        ('sensor', ctypes.c_int),       # 传感器，0-一维力；1-六维力
+        ('mode', ctypes.c_int),     # 0-基坐标系力控；1-工具坐标系力控
+        ('control_mode', ctypes.c_int * int(6)),        # 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 5-浮动+运动模式 6-弹簧+运动模式 7-力跟踪+运动模式 8-姿态自适应模式
+        ('desired_force', ctypes.c_float * int(6)),     # 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
+        ('limit_vel', ctypes.c_float * int(6)),     # 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
     ]
 
 class ForcePositionMove(ctypes.Structure):
     _fields_ = [
-        ('flag', ctypes.c_int),
-        ('pose', Pose),
-        ('joint', ctypes.c_float * int(7)),
-        ('sensor', ctypes.c_int),
-        ('mode', ctypes.c_int),
-        ('follow', ctypes.c_bool),
-        ('control_mode', ctypes.c_int * int(6)),
-        ('desired_force', ctypes.c_float * int(6)),
-        ('limit_vel', ctypes.c_float * int(6)),
+        ('flag', ctypes.c_int),         # 0-下发目标角度，1-下发目标位姿
+        ('pose', Pose),         # 当前坐标系下的目标位姿，支持四元数/欧拉角表示姿态。位置精度：0.001mm，欧拉角表示姿态，姿态精度：0.001rad，四元数方式表示姿态，姿态精度：0.000001
+        ('joint', ctypes.c_float * int(7)),         # 目标关节角度，单位：°，精度：0.001°
+        ('sensor', ctypes.c_int),           # 传感器，0-一维力；1-六维力
+        ('mode', ctypes.c_int),         # 0-基坐标系力控；1-工具坐标系力控；
+        ('follow', ctypes.c_bool),          # 表示驱动器的运动跟随效果，true 为高跟随，false 为低跟随。
+        ('control_mode', ctypes.c_int * int(6)),            # 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 5-浮动+运动模式 6-弹簧+运动模式 7-力跟踪+运动模式 8-姿态自适应模式
+        ('desired_force', ctypes.c_float * int(6)),         # 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
+        ('limit_vel', ctypes.c_float * int(6)),         # 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
     ]
 
 class TrajectoryData(ctypes.Structure):
@@ -322,23 +333,24 @@ class TrajectoryData(ctypes.Structure):
 
 class ProgramTrajectoryData(ctypes.Structure):
     _fields_ = [
-        ("page_num", ctypes.c_int),
-        ("page_size", ctypes.c_int),
-        ("total_size", ctypes.c_int),
-        ("vague_search", ctypes.c_char * 32),
-        ("list", TrajectoryData * 100)
+        ("page_num", ctypes.c_int), # 页码（全部查询时此参数传NULL）
+        ("page_size", ctypes.c_int),    # 每页大小（全部查询时此参数传NULL）
+        ("total_size", ctypes.c_int),   # 列表总大小
+        ("vague_search", ctypes.c_char * 32),   # 模糊搜索 （传递此参数可进行模糊查询）
+        ("list", TrajectoryData * 100)  # 符合的在线编程列表
     ]
 
 
 class ProgramRunState(ctypes.Structure):
     _fields_ = [
-        ("run_state", ctypes.c_int),
-        ("id", ctypes.c_int),
-        ("plan_num", ctypes.c_int),
-        ("loop_num", ctypes.c_int * 10),
-        ("loop_cont", ctypes.c_int * 10),
-        ("step_mode", ctypes.c_int),
-        ("plan_speed", ctypes.c_int)
+        ("run_state", ctypes.c_int),        # 0 未开始 1运行中 2暂停中
+        ("id", ctypes.c_int),       # 运行轨迹编号，已存储轨迹 的id，没有存储则为0 ，未运行则不返回
+        ("edit_id", ctypes.c_int),       # 上次编辑的在线编程编号 ID，未运行时返回，没有存储则为0
+        ("plan_num", ctypes.c_int),     # 运行到的行数，未运行则不返回
+        ("loop_num", ctypes.c_int * 10),        # 存在循环指令的行数，未运行则不返回
+        ("loop_cont", ctypes.c_int * 10),       # 循环指令行数对应的运行次数，未运行则不返回
+        ("step_mode", ctypes.c_int),        # 单步模式，1为单步模式，0为非单步模式，未运行则不返回
+        ("plan_speed", ctypes.c_int)        # 全局规划速度比例 1-100，未运行则不返回
     ]
 
 
@@ -531,7 +543,7 @@ class ToolEnvelopeList(ctypes.Structure):
 
 
 class Waypoint(ctypes.Structure):
-    _fields_ = [("point_name", ctypes.c_char * 12),
+    _fields_ = [("point_name", ctypes.c_char * 16),
                 ("joint", ctypes.c_float * ARM_DOF),
                 ("pose", Pose),
                 ("work_frame", ctypes.c_char * 12),
@@ -3442,8 +3454,9 @@ class Set_Gripper():
         ArmSocket socket句柄
         speed 手爪夹取速度 ，范围 1~1000，无单位量纲 无
         force 力控阈值 ，范围 ：50~1000，无单位量纲 无
-        block True 阻塞 False 非阻塞
-        timeout 超时时间设置，阻塞模式生效，单位：秒
+        block RM_NONBLOCK-非阻塞，不接收夹爪到位指令; RM_BLOCK-阻塞，等待控制器返回夹爪到位指令
+        timeout 非阻塞模式：0-发送后立即返回；其他值-接收设置成功指令后返回；
+                阻塞模式：等待夹爪到位指令超时时间，单位：秒；
         return 0-成功，失败返回:错误码, rm_define.h查询.
         """
 
@@ -3462,8 +3475,9 @@ class Set_Gripper():
         Set_Gripper_Release 手爪松开
         ArmSocket socket句柄
         speed 手爪松开速度 ，范围 1~1000，无单位量纲
-        block True 阻塞 False 非阻塞
-        timeout 超时时间设置，阻塞模式生效，单位：秒
+        block RM_NONBLOCK-非阻塞，不接收夹爪到位指令; RM_BLOCK-阻塞，等待控制器返回夹爪到位指令
+        timeout 非阻塞模式：0-发送后立即返回；其他值-接收设置成功指令后返回；
+                阻塞模式：等待夹爪到位指令超时时间，单位：秒；
         return 0-成功，失败返回:错误码
 -
         """
@@ -3500,10 +3514,11 @@ class Set_Gripper():
     def Set_Gripper_Pick_On(self, speed, force, block=True, timeout=30):
         """
         Set_Gripper_Pick_On 手爪力控持续夹取
-        :param speed:手爪夹取速度 ，范围 1~1000，无单位量纲 无
-        :param force:力控阈值 ，范围 ：50~1000，无单位量纲 无
-        :param block:RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
-        :param timeout:超时时间设置，阻塞模式生效，单位：秒
+        speed:手爪夹取速度 ，范围 1~1000，无单位量纲 无
+        force:力控阈值 ，范围 ：50~1000，无单位量纲 无
+        block RM_NONBLOCK-非阻塞，不接收夹爪到位指令; RM_BLOCK-阻塞，等待控制器返回夹爪到位指令
+        timeout 非阻塞模式：0-发送后立即返回；其他值-接收设置成功指令后返回；
+                阻塞模式：等待夹爪到位指令超时时间，单位：秒；
         :return: 0-成功，失败返回:错误码, rm_define.h查询.
         """
 
@@ -3521,9 +3536,10 @@ class Set_Gripper():
     def Set_Gripper_Position(self, position, block=True, timeout=30):
         """
         Set_Gripper_Position 设置手爪开口度
-        :param position:手爪开口位置 ，范围 ：1~1000，无单位量纲 无
-        :param block:RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
-        :param timeout:超时时间设置，阻塞模式生效，单位：秒
+        position:手爪开口位置 ，范围 ：1~1000，无单位量纲 无
+        block RM_NONBLOCK-非阻塞，不接收夹爪到位指令; RM_BLOCK-阻塞，等待控制器返回夹爪到位指令
+        timeout 非阻塞模式：0-发送后立即返回；其他值-接收设置成功指令后返回；
+                阻塞模式：等待夹爪到位指令超时时间，单位：秒；
         :return:0-成功，失败返回:错误码, rm_define.h查询.
         """
 
@@ -3569,7 +3585,7 @@ class Drag_Teach():
         self.pDll.Set_Drag_Teach_Sensitivity.argtypes = [ctypes.c_int, ctypes.c_int]
         self.pDll.Set_Drag_Teach_Sensitivity.restype = self.check_error
 
-        tag = self.pDll.Set_Drag_Teach_Sensitivity(self.handle, grade)
+        tag = self.pDll.Set_Drag_Teach_Sensitivity(self.nSocket, grade)
         return tag
 
     def Get_Drag_Teach_Sensitivity(self) :
@@ -3585,7 +3601,7 @@ class Drag_Teach():
         self.pDll.Get_Drag_Teach_Sensitivity.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
    
         grade = ctypes.c_int()
-        tag = self.pDll.Get_Drag_Teach_Sensitivity(self.handle, ctypes.byref(grade))
+        tag = self.pDll.Get_Drag_Teach_Sensitivity(self.nSocket, ctypes.byref(grade))
         return tag, grade.value
     
 
@@ -5912,13 +5928,13 @@ class Arm(Set_Joint, Get_Joint, Tcp_Config, Tool_Frame, Work_Frame, Arm_State, I
         byteIP = bytes(ip, "gbk")
         self.nSocket = self.pDll.Arm_Socket_Start(byteIP, 8080, 200)  # 连接机械臂
 
-        # state = self.pDll.Arm_Socket_State(self.nSocket)  # 查询机械臂连接状态
+        state = self.pDll.Arm_Socket_State(self.nSocket)  # 查询机械臂连接状态
 
-        # if state:
-        #     logger_.info(f'连接机械臂连接失败:{self.nSocket}')
+        if state:
+            logger_.info(f'连接机械臂连接失败:{self.nSocket}')
 
-        # else:
-        #     logger_.info(f'连接机械臂成功，句柄为:{self.nSocket}')
+        else:
+            logger_.info(f'连接机械臂成功，句柄为:{self.nSocket}')
 
     def Arm_Socket_State(self):
         """
