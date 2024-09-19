@@ -254,6 +254,25 @@ class HandState(ctypes.Structure):
     ]
 
 
+class ArmCurrentStatus(IntEnum):
+    """udp推送机械臂状态枚举 
+    """
+    RM_IDLE_E = 0       # 使能但空闲状态
+    RM_MOVE_L_E = RM_IDLE_E + 1     # move L运动中状态
+    RM_MOVE_J_E = RM_MOVE_L_E + 1       # move J运动中状态
+    RM_MOVE_C_E = RM_MOVE_J_E + 1       # move C运动中状态
+    RM_MOVE_S_E = RM_MOVE_C_E + 1       # move S运动中状态
+    RM_MOVE_THROUGH_JOINT_E = RM_MOVE_S_E + 1       # 角度透传状态
+    RM_MOVE_THROUGH_POSE_E = RM_MOVE_THROUGH_JOINT_E + 1        # 位姿透传状态
+    RM_MOVE_THROUGH_FORCE_POSE_E = RM_MOVE_THROUGH_POSE_E + 1       # 力控透传状态
+    RM_MOVE_THROUGH_CURRENT_E = RM_MOVE_THROUGH_FORCE_POSE_E + 1        # 电流环透传状态
+    RM_STOP_E = RM_MOVE_THROUGH_CURRENT_E + 1       # 急停状态
+    RM_SLOW_STOP_E = RM_STOP_E + 1      # 缓停状态
+    RM_PAUSE_E = RM_SLOW_STOP_E + 1     # 暂停状态
+    RM_CURRENT_DRAG_E = RM_PAUSE_E + 1      # 电流环拖动状态
+    RM_SENSOR_DRAG_E = RM_CURRENT_DRAG_E + 1        # 六维力拖动状态
+    RM_TECH_DEMONSTRATION_E = RM_SENSOR_DRAG_E + 1      # 示教状态
+
 # Define the RobotStatus structure
 class RobotStatus(ctypes.Structure):
     _fields_ = [
@@ -267,6 +286,7 @@ class RobotStatus(ctypes.Structure):
         ("liftState", LiftState) , # 升降关节数据
         ("expandState", ExpandState) , # 扩展关节数据
         ("handState", HandState) , # 灵巧手数据
+        ("armState", ArmCurrentStatus) , # 机械臂当前状态
     ]
 
 
@@ -278,7 +298,8 @@ class UDP_Custom_Config(ctypes.Structure):
         ("joint_speed", ctypes.c_int),   # 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         ("lift_state", ctypes.c_int),    # 升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         ("expand_state", ctypes.c_int),  # 扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状
-        ("hand_state", ctypes.c_int),    # 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        # ("hand_state", ctypes.c_int),    # 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        ("arm_current_status", ctypes.c_int),    # 机械臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
     ]
 
 class Realtime_Push_Config(ctypes.Structure):
@@ -4715,7 +4736,7 @@ class UDP():
 
         return error_code, config
 
-    def Set_Realtime_Push(self, cycle=-1, port=-1, enable=True, force_coordinate=-1, ip=None, joint_speed=-1, lift_state=-1, expand_state=-1, hand_state=-1):
+    def Set_Realtime_Push(self, cycle=-1, port=-1, enable=True, force_coordinate=-1, ip=None, joint_speed=-1, lift_state=-1, expand_state=-1, hand_state=-1, arm_current_status=-1):
         """
         Set_Realtime_Push            设置主动上报接口配置
         :param cycle:               设置广播周期，为5ms的倍数
@@ -4726,7 +4747,8 @@ class UDP():
         joint_speed                 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         lift_state                  升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         expand_state                扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
-        hand_state                  灵巧手信息1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        hand_state                  灵巧手信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        arm_current_status          机械臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         :return:                    0-成功，失败返回:错误码, rm_define.h查询.
         """
         self.pDll.Set_Realtime_Push.argtypes = (ctypes.c_int, Realtime_Push_Config)
@@ -4737,7 +4759,7 @@ class UDP():
         else:
             ip = ip.encode('utf-8')
 
-        state = UDP_Custom_Config(joint_speed, lift_state, expand_state)
+        state = UDP_Custom_Config(joint_speed, lift_state, expand_state, arm_current_status)
 
         config = Realtime_Push_Config(cycle, enable, port, force_coordinate, ip, state)
 
@@ -4918,7 +4940,7 @@ class Algo:
                 - false：单步模式，自动调整冗余参数的求解策略。适于当前位姿跟要求解的位姿差别特别小、连续周期控制的场景，如笛卡尔空间规划的位姿求解等，耗时短
 
         """
-        cls.pDll.Algo_Set_Redundant_Parameter_Traversal_Mode.argtypes = (ctypes.c_bool)
+        cls.pDll.Algo_Set_Redundant_Parameter_Traversal_Mode.argtypes = [ctypes.c_bool]
         cls.pDll.Algo_Set_Redundant_Parameter_Traversal_Mode(mode)
 
     @classmethod

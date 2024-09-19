@@ -47,7 +47,7 @@ typedef SOCKET  SOCKHANDLE;
 typedef int SOCKHANDLE;
 #endif
 
-#define  SDK_VERSION (char*)"4.3.5.t2"
+#define  SDK_VERSION (char*)"4.3.5.t3"
 
 typedef unsigned char byte;
 typedef unsigned short u16;
@@ -304,7 +304,7 @@ typedef struct {
 } ForceData;
 
 /***
- * 扩展关节数据
+ * udp推送扩展关节数据
  *
  */
 typedef struct {
@@ -317,7 +317,7 @@ typedef struct {
 } ExpandState;
 
 /***
- * 升降机构状态
+ * udp推送升降机构状态
  *
  */
 typedef struct {
@@ -329,7 +329,7 @@ typedef struct {
 } LiftState;
 
 /***
- * 灵巧手状态
+ * udp推送灵巧手状态
  *
  */
 typedef struct {
@@ -338,6 +338,29 @@ typedef struct {
     int hand_state;        ///< 表示灵巧手自由度状态
     int hand_err;       ///< 表示灵巧手系统错误
 } HandState;
+
+
+/**
+ * @brief udp推送机械臂当前状态
+ *
+ */
+typedef enum {
+    RM_IDLE_E,                     // 使能但空闲状态
+    RM_MOVE_L_E,                   // move L运动中状态
+    RM_MOVE_J_E,                   // move J运动中状态
+    RM_MOVE_C_E,                   // move C运动中状态
+    RM_MOVE_S_E,                   // move S运动中状态
+    RM_MOVE_THROUGH_JOINT_E,       // 角度透传状态
+    RM_MOVE_THROUGH_POSE_E,        // 位姿透传状态
+    RM_MOVE_THROUGH_FORCE_POSE_E,  // 力控透传状态
+    RM_MOVE_THROUGH_CURRENT_E,     // 电流环透传状态
+    RM_STOP_E,                     // 急停状态
+    RM_SLOW_STOP_E,                // 缓停状态
+    RM_PAUSE_E,                    // 暂停状态
+    RM_CURRENT_DRAG_E,             // 电流环拖动状态
+    RM_SENSOR_DRAG_E,              // 六维力拖动状态
+    RM_TECH_DEMONSTRATION_E        // 示教状态
+} ArmCurrentStatus;
 
 /**
  * UDP接口实时机械臂状态上报
@@ -353,6 +376,7 @@ typedef struct {
     LiftState liftState;      ///< 升降关节数据
     ExpandState expandState;      ///< 扩展关节数据
     HandState handState;         ///< 灵巧手数据
+    ArmCurrentStatus arm_current_status;     ///< 机械臂状态
 } RobotStatus;
 
 
@@ -489,7 +513,8 @@ typedef struct
     int joint_speed;   ///< 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
     int lift_state;    ///< 升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
     int expand_state;  ///< 扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
-    int hand_state;    ///< 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+//    int hand_state;    ///< 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+    int arm_current_status;    ///< 机械臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
 }UDP_Custom_Config;
 
 /**
