@@ -32,7 +32,6 @@ elif sys.platform == "win32":
         dllPath = os.path.join(dllPath, 'win_64', 'RM_Base.dll')
     else:
         dllPath = os.path.join(dllPath, 'win_32', 'RM_Base.dll')
-        print(dllPath)
 else:
     dllPath = os.path.join(dllPath, 'linux_arm', 'libRM_Base.so.1.0.0')
 
@@ -615,6 +614,48 @@ class WaypointsList(ctypes.Structure):
         }
         return output_dict
 
+
+class Send_Project_Params(ctypes.Structure):
+    """  
+    用于发送编程文件信息的结构体。  
+    """
+    _fields_ = [
+        ('project_path', ctypes.c_char * 300),
+        ('project_path_len', ctypes.c_int),
+        ('plan_speed', ctypes.c_int),
+        ('only_save', ctypes.c_int),
+        ('save_id', ctypes.c_int),
+        ('step_flag', ctypes.c_int),
+        ('auto_start', ctypes.c_int),
+        ('project_type', ctypes.c_int),
+    ]
+
+    def __init__(self, project_path: str = None, plan_speed: int = None, only_save: int = None, save_id: int = None,
+                 step_flag: int = None, auto_start: int = None, project_type: int = None):
+        """
+        在线编程文件下发结构体
+
+        @param project_path (str, optional): 下发文件路径文件路径及名称，默认为None
+        @param plan_speed (int, optional): 规划速度比例系数，默认为None
+        @param only_save (int, optional): 0-运行文件，1-仅保存文件，不运行，默认为None
+        @param save_id (int, optional): 保存到控制器中的编号，默认为None
+        @param step_flag (int, optional): 设置单步运行方式模式，1-设置单步模式 0-设置正常运动模式，默认为None
+        @param auto_start (int, optional): 设置默认在线编程文件，1-设置默认  0-设置非默认，默认为None
+        @param project_type (int, optional): 下发文件类型。0-在线编程文件，1-拖动示教轨迹文件
+        """
+        if all(param is None for param in [project_path, plan_speed, only_save, save_id, step_flag, auto_start,project_type]):
+            return
+        else:
+            if project_path is not None:
+                self.project_path = project_path.encode('utf-8')
+                self.project_path_len = len(project_path.encode('utf-8')) + 1  # 包括null终止符
+
+            self.plan_speed = plan_speed if plan_speed is not None else 0
+            self.only_save = only_save if only_save is not None else 0
+            self.save_id = save_id if save_id is not None else 0
+            self.step_flag = step_flag if step_flag is not None else 0
+            self.auto_start = auto_start if auto_start is not None else 0
+            self.project_type = project_type if project_type is not None else 0
 
 class Set_Joint():
     def Set_Joint_Speed(self, joint_num, speed, block=True):
@@ -5286,28 +5327,20 @@ class Algo:
 
 class Online_programming():
 
-    def Send_TrajectoryFile(self, file_name, plan_speed, auto_start, step_flag):
+    def Send_TrajectoryFile(self, send_params: Send_Project_Params):
         """
         Send_TrajectoryFile          轨迹文件下发
         :param ArmSocket: socket句柄
-        :param file_name: 轨迹文件完整路径 例: c:/rm_file.txt
-        :param file_name_len: file_name 字段的长度
-        :param plan_speed: 规划速度比例(0-100)
-        :param auto_start: 设置默认在线编程文件 1-设置默认  0-设置非默认[-I]
-        :param step_flag: 设置单步运行方式模式 1-设置单步模式  0-设置正常运动模式[-I]
+        :param send_params: 文件下发参数
         :return: err_line: 有问题的工程行数
         """
 
         self.pDll.Send_TrajectoryFile.argtypes = (
-            ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_byte, ctypes.c_byte,
-            ctypes.POINTER(ctypes.c_int))
+            ctypes.c_int, Send_Project_Params, ctypes.POINTER(ctypes.c_int))
         self.pDll.Send_TrajectoryFile.restype = ctypes.c_int
 
-        file_name = ctypes.create_string_buffer(file_name.encode('utf-8'))
         err_line = ctypes.c_int()
-        file_name_len = len(file_name)
-        tag = self.pDll.Send_TrajectoryFile(self.nSocket, file_name, file_name_len, plan_speed, auto_start,
-                                            step_flag, ctypes.byref(err_line))
+        tag = self.pDll.Send_TrajectoryFile(self.nSocket, send_params, ctypes.byref(err_line))
         logger_.info(f'Send_TrajectoryFile: {tag}')
 
         return tag, err_line.value
