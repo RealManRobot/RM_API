@@ -47,7 +47,7 @@ typedef SOCKET  SOCKHANDLE;
 typedef int SOCKHANDLE;
 #endif
 
-#define  SDK_VERSION (char*)"4.3.5.t3"
+#define  SDK_VERSION (char*)"4.3.5.t4"
 
 typedef unsigned char byte;
 typedef unsigned short u16;
@@ -550,7 +550,7 @@ typedef struct
     int sensor;            ///< 传感器，0-一维力；1-六维力
     int mode;              ///< 0-基坐标系力控；1-工具坐标系力控；
     int control_mode[6];       ///< 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 5-浮动+运动模式 6-弹簧+运动模式 7-力跟踪+运动模式 8-姿态自适应模式
-    float desired_force[6];     ///< 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
+    float desired_force[6];     ///< 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，单位N。
     float limit_vel[6];     ///< 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
 }ForcePosition;
 /**
@@ -569,6 +569,13 @@ typedef struct
     float desired_force[6];     ///< 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
     float limit_vel[6];     ///< 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
 }ForcePositionMove;
+
+typedef struct{
+    float alpha;    //unit: deg
+    float a;        //unit: m
+    float d;        //unit: m
+    float offset;   //unit: deg
+}DHData;
 
 typedef void (*RobotStatusListener)(RobotStatus data);
 typedef void (*RM_Callback)(CallbackData data);

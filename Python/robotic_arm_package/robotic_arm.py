@@ -286,7 +286,7 @@ class RobotStatus(ctypes.Structure):
         ("liftState", LiftState) , # 升降关节数据
         ("expandState", ExpandState) , # 扩展关节数据
         ("handState", HandState) , # 灵巧手数据
-        ("armState", ArmCurrentStatus) , # 机械臂当前状态
+        ("armState", ctypes.c_int) , # 机械臂当前状态，对应ArmCurrentStatus枚举
     ]
 
 
@@ -324,10 +324,20 @@ class ForcePosition(ctypes.Structure):
     _fields_ = [
         ('sensor', ctypes.c_int),       # 传感器，0-一维力；1-六维力
         ('mode', ctypes.c_int),     # 0-基坐标系力控；1-工具坐标系力控
-        ('control_mode', ctypes.c_int * int(6)),        # 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 5-浮动+运动模式 6-弹簧+运动模式 7-力跟踪+运动模式 8-姿态自适应模式
-        ('desired_force', ctypes.c_float * int(6)),     # 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
-        ('limit_vel', ctypes.c_float * int(6)),     # 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
+        ('control_mode', ctypes.c_int * int(6)),        # 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模 4-力跟踪模式 8-力跟踪+姿态自适应模式（模式8只对工具坐标系的Fz方向有效）
+        ('desired_force', ctypes.c_float * int(6)),     # 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，单位N。
+        ('limit_vel', ctypes.c_float * int(6)),     # 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。（x、y、z）轴的最大线速度，单位为m/s，（rx、ry、rz）轴的最大角速度单位为°/s
     ]
+    def __init__(self, sensor=None, mode=None, control_mode=None, desired_force=None, limit_vel=None):
+        if all(param is None for param in [sensor, mode, control_mode, desired_force, limit_vel]):
+            return
+        else:
+            self.sensor = sensor
+            self.mode = mode
+            self.control_mode = (ctypes.c_int * 6)(*control_mode)
+            self.desired_force = (ctypes.c_float * 6)(*desired_force)
+            self.limit_vel = (ctypes.c_float * 6)(*limit_vel)
+
 
 class ForcePositionMove(ctypes.Structure):
     _fields_ = [
@@ -337,10 +347,45 @@ class ForcePositionMove(ctypes.Structure):
         ('sensor', ctypes.c_int),           # 传感器，0-一维力；1-六维力
         ('mode', ctypes.c_int),         # 0-基坐标系力控；1-工具坐标系力控；
         ('follow', ctypes.c_bool),          # 表示驱动器的运动跟随效果，true 为高跟随，false 为低跟随。
-        ('control_mode', ctypes.c_int * int(6)),            # 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 5-浮动+运动模式 6-弹簧+运动模式 7-力跟踪+运动模式 8-姿态自适应模式
+        ('control_mode', ctypes.c_int * int(6)),            # 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 8-力跟踪+姿态自适应模式（模式8只对Fz方向有效）
         ('desired_force', ctypes.c_float * int(6)),         # 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
         ('limit_vel', ctypes.c_float * int(6)),         # 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
     ]
+
+    def __init__(self, flag: int = None, pose: list[float] = None, joint: list[float] = None, sensor: int = None,  mode:int = None, 
+                 follow:bool = None, control_mode:list[int] =None,desired_force:list[float] =None,limit_vel:list[float] =None):
+        """透传力位混合补偿参数初始化
+        """
+        if all(param is None for param in [flag,pose,joint,sensor,mode,follow,control_mode,desired_force,limit_vel]):
+            return
+        else:  
+            if flag is not None:  
+                self.flag = flag     
+            if flag == 1:
+                if pose is not None and len(pose) == 6:
+                    po1 = Pose()
+                    po1.position = Pos(*pose[:3])
+                    po1.euler = Euler(*pose[3:])
+                if pose is not None and len(pose) == 7:
+                    po1 = Pose()
+                    po1.position = Pos(*pose[:3])
+                    po1.quaternion = Quat(*pose[3:])
+                self.pose = po1
+            elif flag == 0:         
+                self.joint = (ctypes.c_float*7)(*joint)
+            if sensor is not None:  
+                self.sensor = sensor
+            if mode is not None:  
+                self.mode = mode
+            if follow is not None:  
+                self.follow = follow
+            if control_mode is not None and len(control_mode) == 6:  
+                self.control_mode = (ctypes.c_int*6)(*control_mode)
+            if desired_force is not None and len(desired_force) == 6:  
+                self.desired_force = (ctypes.c_float*6)(*desired_force)
+            if limit_vel is not None and len(limit_vel) == 6:  
+                self.limit_vel = (ctypes.c_float*6)(*limit_vel)
+
 
 class TrajectoryData(ctypes.Structure):
     _fields_ = [
@@ -4043,6 +4088,26 @@ class Set_Hand():
         tag = self.pDll.Set_Hand_Angle(self.nSocket, angle, block)
 
         logger_.info(f'Set_Hand_Angle:{tag}')
+
+        return tag
+    
+    def Set_Hand_Follow_Angle(self, angle):
+        """
+        Set_Hand_Follow_Angle 设置灵巧手各关节跟随角度（正式版本暂不支持）
+        :param angle:手指角度数组，6个元素分别代表6个自由度的角度。范围：0~1000.另外，-1代表该自由度不执行任何操作，保持当前状态
+        :return:0-成功，失败返回:错误码, rm_define.h查询.
+
+        """
+
+        self.pDll.Set_Hand_Follow_Angle.argtypes = (
+            ctypes.c_int, ctypes.c_int * 6)
+        self.pDll.Set_Hand_Follow_Angle.restype = self.check_error
+
+        angle = (ctypes.c_int * 6)(*angle)
+
+        tag = self.pDll.Set_Hand_Follow_Angle(self.nSocket, angle)
+
+        logger_.info(f'Set_Hand_Follow_Angle:{tag}')
 
         return tag
 

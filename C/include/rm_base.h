@@ -294,7 +294,7 @@ RM_BASESHARED_EXPORT int Get_Collision_Stage(SOCKHANDLE ArmSocket, int *stage);
 RM_BASESHARED_EXPORT int Set_DH_Data(SOCKHANDLE ArmSocket, float lsb, float lse, float lew, float lwt_, float d3, bool block);
 
 ///
-/// \brief Get_DH_Data 该函数用于获取DH参数，一般在标定后使用
+/// \brief Get_DH_Data 该函数用于获取DH参数
 /// \param ArmSocket socket句柄
 /// \param lsb 获取到的DH参数，单位：mm
 /// \param lse 获取到的DH参数，单位：mm
@@ -1390,6 +1390,15 @@ RM_BASESHARED_EXPORT int Set_Hand_Seq(SOCKHANDLE ArmSocket, int seq_num, bool bl
 /// \return 0-成功，失败返回:错误码, rm_define.h查询.
 ///
 RM_BASESHARED_EXPORT int Set_Hand_Angle(SOCKHANDLE ArmSocket, const int *angle, bool block);
+
+///
+/// \brief Set_Hand_Follow_Angle 设置灵巧手各关节跟随角度（正式版本暂不支持）
+/// \details 设置灵巧手跟随角度，灵巧手有6个自由度，从1~6分别为小拇指，无名指，中指，食指，大拇指弯曲，大拇指旋转
+/// \param ArmSocket socket句柄
+/// \param angle 手指角度数组，6个元素分别代表6个自由度的角度。范围：0~1000.另外，-1代表该自由度不执行任何操作，保持当前状态
+/// \return 0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Set_Hand_Follow_Angle(SOCKHANDLE ArmSocket, const int *angle);
 
 ///
 /// \brief Set_Hand_Speed 设置灵巧手各关节速度
