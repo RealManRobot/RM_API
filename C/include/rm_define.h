@@ -47,7 +47,7 @@ typedef SOCKET  SOCKHANDLE;
 typedef int SOCKHANDLE;
 #endif
 
-#define  SDK_VERSION (char*)"4.3.5.t4"
+#define  SDK_VERSION (char*)"4.3.5"
 
 typedef unsigned char byte;
 typedef unsigned short u16;
