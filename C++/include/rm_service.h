@@ -1434,14 +1434,23 @@ public:
     RM_SERVICESHARED_EXPORT int Service_Set_Hand_Angle(SOCKHANDLE ArmSocket, const int *angle, bool block);
 
     ///
-    /// \brief Set_Hand_Follow_Angle 设置灵巧手各关节跟随角度（正式版本暂不支持）
+    /// \brief Set_Hand_Follow_Angle 设置灵巧手各关节跟随角度
     /// \details 设置灵巧手跟随角度，灵巧手有6个自由度，从1~6分别为小拇指，无名指，中指，食指，大拇指弯曲，大拇指旋转
     /// \param ArmSocket socket句柄
-    /// \param angle 手指角度数组，6个元素分别代表6个自由度的角度。范围：0~1000.另外，-1代表该自由度不执行任何操作，保持当前状态
+    /// \param angle 手指角度数组，最大表示范围为-32768到+32767，按照灵巧手厂商定义的角度做控制，例如因时的范围为0-2000
+    /// \param block RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
-    RM_SERVICESHARED_EXPORT int Service_Set_Hand_Follow_Angle(SOCKHANDLE ArmSocket, const int *angle);
-
+    RM_SERVICESHARED_EXPORT int Service_Set_Hand_Follow_Angle(SOCKHANDLE ArmSocket, const int *angle, bool block);
+    ///
+    /// \brief Set_Hand_Follow_Pos 设置灵巧手各关节跟随位置
+    /// \details 设置灵巧手跟随角度，灵巧手有6个自由度，从1~6分别为小拇指，无名指，中指，食指，大拇指弯曲，大拇指旋转，最高50Hz的控制频率
+    /// \param ArmSocket socket句柄
+    /// \param pos 手指位置数组，最大范围为0-65535，按照灵巧手厂商定义的角度做控制，例如因时的范围为0-1000
+    /// \param block RM_NONBLOCK-非阻塞，发送后立即返回；RM_BLOCK-阻塞，等待控制器返回设置成功指令
+    /// \return 0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Set_Hand_Follow_Pos(SOCKHANDLE ArmSocket, const int *pos, bool block);
     ///
     /// \brief Service_Set_Hand_Speed 设置灵巧手各关节速度
     /// \param ArmSocket socket句柄
@@ -2468,7 +2477,7 @@ public:
     RM_SERVICESHARED_EXPORT void Service_Algo_Set_Redundant_Parameter_Traversal_Mode(bool mode);
 
     ///
-    /// \brief Algo_Inverse_Kinematics  逆解函数，默认单步模式，可使用Algo_Set_Redundant_Parameter_Traversal_Mode接口设置逆解求解模式
+    /// \brief Algo_Inverse_Kinematics  逆解函数，默认遍历模式，可使用Algo_Set_Redundant_Parameter_Traversal_Mode接口设置逆解求解模式
     /// \param q_in                     上一时刻关节角度 单位°
     /// \param q_pose                   目标位姿
     /// \param q_out                    输出的关节角度 单位°

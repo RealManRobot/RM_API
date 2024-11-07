@@ -47,7 +47,7 @@ typedef SOCKET  SOCKHANDLE;
 typedef int SOCKHANDLE;
 #endif
 
-#define  SDK_VERSION (char*)"4.3.5"
+#define  SDK_VERSION (char*)"4.3.6"
 
 typedef unsigned char byte;
 typedef unsigned short u16;
@@ -333,10 +333,11 @@ typedef struct {
  *
  */
 typedef struct {
-    int hand_pos;         ///< 表示灵巧手自由度大小，0-1000，无量纲
-    float hand_force;            ///< 表示灵巧手自由度电流，单位mN
-    int hand_state;        ///< 表示灵巧手自由度状态
-    int hand_err;       ///< 表示灵巧手系统错误
+    int hand_pos[6];         ///< 表示灵巧手位置
+    int hand_angle[6];         ///< 表示灵巧手角度
+    int hand_force[6];            ///< 表示灵巧手自由度电流，单位mN
+    int hand_state[6];        ///< 表示灵巧手自由度状态
+    int hand_err;       ///< 表示灵巧手系统错误，由灵巧手厂商定义错误含义，例如因时状态码如下：1表示有错误，0表示无错误
 } HandState;
 
 
@@ -361,7 +362,14 @@ typedef enum {
     RM_SENSOR_DRAG_E,              // 六维力拖动状态
     RM_TECH_DEMONSTRATION_E        // 示教状态
 } ArmCurrentStatus;
-
+/***
+ * aloha主臂状态
+ *
+ */
+typedef struct {
+    int io1_state;         ///<  IO1状态（手柄光电检测），0为按键未触发，1为按键触发。
+    int io2_state;        ///<  IO2状态（手柄光电检测），0为按键未触发，1为按键触发。
+} Alohastate;
 /**
  * UDP接口实时机械臂状态上报
  */
@@ -377,6 +385,7 @@ typedef struct {
     ExpandState expandState;      ///< 扩展关节数据
     HandState handState;         ///< 灵巧手数据
     ArmCurrentStatus arm_current_status;     ///< 机械臂状态
+    Alohastate aloha_state;     ///< aloha主臂状态
 } RobotStatus;
 
 
@@ -501,7 +510,7 @@ typedef struct {
     char project_path[300];      ///< 下发文件路径文件名
     int project_path_len;   ///< 名称长度
     int plan_speed;     ///< 规划速度比例系数
-    int only_save;      ///< 0-运行文件，1-仅保存文件，不运行
+    int only_save;      ///< 0-保存并运行文件，1-仅保存文件，不运行
     int save_id;        ///< 保存到控制器中的编号
     int step_flag;      ///< 设置单步运行方式模式，1-设置单步模式 0-设置正常运动模式
     int auto_start;     ///< 设置默认在线编程文件，1-设置默认  0-设置非默认
@@ -513,8 +522,9 @@ typedef struct
     int joint_speed;   ///< 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
     int lift_state;    ///< 升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
     int expand_state;  ///< 扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
-//    int hand_state;    ///< 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+    int hand_state;    ///< 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
     int arm_current_status;    ///< 机械臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+    int aloha_state;    ///< aloha主臂状态是否上报。1：上报；0：关闭上报；-1：不设置，保持之前的状态
 }UDP_Custom_Config;
 
 /**
@@ -525,7 +535,7 @@ typedef struct {
     int cycle;      ///< 广播周期，5ms的倍数，-1：不设置，保持之前的状态
     bool enable;     ///< 使能，是否主动上报
     int port;       ///< 广播的端口号，-1：不设置，保持之前的状态
-    int force_coordinate;       ///< 系统外受力数据的坐标系，0为传感器坐标系 1为当前工作坐标系 2为当前工具坐标系（力传感器版本支持）-1代表不设置，保持之前的状态
+    int force_coordinate; ///< 系统外受力数据的坐标系，0为传感器坐标系 1为当前工作坐标系 2为当前工具坐标系（力传感器版本支持）-1代表不支持传感器
     char ip[28];       ///< 自定义的上报目标IP地址，空字符串代表不设置，保持之前的状态
     UDP_Custom_Config custom;       ///< 自定义项内容
 } Realtime_Push_Config;

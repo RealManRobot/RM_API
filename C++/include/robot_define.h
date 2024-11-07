@@ -199,6 +199,13 @@ typedef enum
 
 typedef enum
 {
+    VIRTUALWALL_NONE_TEACH = 0,      // 无拖动示教
+    VIRTUALWALL_FT_SENSOR_TEACH = 1, // 虚拟墙用于六维力拖动示教
+    VIRTUALWALL_CURRENT_TEACH = 2    // 虚拟墙用于电流环拖动示教
+} VirtualWallTeachMode;              // 虚拟墙拖动示教模式
+
+typedef enum
+{
     INSIDE_WALL = 0, // 墙内
     OUTSIDE_WALL = 1 // 墙外
 } VirtualWallDragScope; // 虚拟墙拖动区域
@@ -361,18 +368,6 @@ typedef struct
 
     int dynamics_model_type;             //* Dynamics model type, 1:old model, 2: new model
 } Robot;
-
-//六维力拖动示教用
-typedef enum
-{
-	None_Teach = 0,
-	Current_Teach = 1,
-	Pos_Teach = 2,
-	Ort_Teach = 3,
-	Multi_Teach = 4
-}TEACH_MODES;
-
-
 
 //基于传感器的力控用
 //力传感器标定结果，成功或失败

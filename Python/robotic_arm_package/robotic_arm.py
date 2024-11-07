@@ -53,7 +53,7 @@ MOVEJ_CANFD_CB = 0x0001  # 角度透传非阻
 MOVEP_CANFD_CB = 0x0002  # 位姿透传非阻
 FORCE_POSITION_MOVE_CB = 0x0003  # 力位混合透传
 
-errro_message = {1: '1: CONTROLLER_DATA_RETURN_FALSE', 2: "2: INIT_MODE_ERR", 3: '3: INIT_TIME_ERR',
+error_message = {1: '1: CONTROLLER_DATA_RETURN_FALSE', 2: "2: INIT_MODE_ERR", 3: '3: INIT_TIME_ERR',
                  4: '4: INIT_SOCKET_ERR', 5: '5: SOCKET_CONNECT_ERR', 6: '6: SOCKET_SEND_ERR', 7: '7: SOCKET_TIME_OUT',
                  8: '8: UNKNOWN_ERR', 9: '9: CONTROLLER_DATA_LOSE_ERR', 10: '10: CONTROLLER_DATE_ARR_NUM_ERR',
                  11: '11: WRONG_DATA_TYPE', 12: '12: MODEL_TYPE_ERR', 13: '13: CALLBACK_NOT_FIND',
@@ -247,10 +247,11 @@ class LiftState(ctypes.Structure):
     ]
 class HandState(ctypes.Structure):
     _fields_ = [
-        ('hand_pos', ctypes.c_int),     # 表示灵巧手自由度大小，0-1000，无量纲
-        ('hand_force', ctypes.c_float),     # 表示灵巧手自由度电流，单位mN
-        ('hand_state', ctypes.c_int),       # 表示灵巧手当前状态，0: 正在松开, 1: 正在抓取
-        ('hand_err', ctypes.c_int),     # 表示灵巧手系统错误
+        ('hand_pos', ctypes.c_int*6),     # 表示灵巧手位置
+        ('hand_angle', ctypes.c_int*6),     # 表示灵巧手角度
+        ('hand_force', ctypes.c_int*6),     # 表示灵巧手自由度力，单位mN
+        ('hand_state', ctypes.c_int*6),       # 表示灵巧手当前状态，由灵巧手厂商定义状态含义。
+        ('hand_err', ctypes.c_int),     # 表示灵巧手系统错误，由灵巧手厂商定义错误含义。
     ]
 
 
@@ -273,6 +274,21 @@ class ArmCurrentStatus(IntEnum):
     RM_SENSOR_DRAG_E = RM_CURRENT_DRAG_E + 1        # 六维力拖动状态
     RM_TECH_DEMONSTRATION_E = RM_SENSOR_DRAG_E + 1      # 示教状态
 
+
+
+class UdpAlohaState(ctypes.Structure):
+    """  
+    aloha主臂状态
+
+    **Attributes**:  
+        - io1_state (int): IO1状态（手柄光电检测），0为按键未触发，1为按键触发。
+        - io2_state (int): IO2状态（手柄光电检测），0为按键未触发，1为按键触发。
+    """
+    _fields_ = [
+        ('io1_state', ctypes.c_int),
+        ('io2_state', ctypes.c_int),
+    ]
+
 # Define the RobotStatus structure
 class RobotStatus(ctypes.Structure):
     _fields_ = [
@@ -287,6 +303,7 @@ class RobotStatus(ctypes.Structure):
         ("expandState", ExpandState) , # 扩展关节数据
         ("handState", HandState) , # 灵巧手数据
         ("armState", ctypes.c_int) , # 机械臂当前状态，对应ArmCurrentStatus枚举
+        ("aloha_state", UdpAlohaState) , # aloha主臂状态
     ]
 
 
@@ -298,8 +315,10 @@ class UDP_Custom_Config(ctypes.Structure):
         ("joint_speed", ctypes.c_int),   # 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         ("lift_state", ctypes.c_int),    # 升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         ("expand_state", ctypes.c_int),  # 扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状
-        # ("hand_state", ctypes.c_int),    # 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        ("hand_state", ctypes.c_int),    # 灵巧手状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         ("arm_current_status", ctypes.c_int),    # 机械臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        ('aloha_state', ctypes.c_int),          # aloha主臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+
     ]
 
 class Realtime_Push_Config(ctypes.Structure):
@@ -352,8 +371,8 @@ class ForcePositionMove(ctypes.Structure):
         ('limit_vel', ctypes.c_float * int(6)),         # 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
     ]
 
-    def __init__(self, flag: int = None, pose: list[float] = None, joint: list[float] = None, sensor: int = None,  mode:int = None, 
-                 follow:bool = None, control_mode:list[int] =None,desired_force:list[float] =None,limit_vel:list[float] =None):
+    def __init__(self, flag = None, pose = None, joint = None, sensor = None,  mode = None, 
+                 follow = None, control_mode =None,desired_force =None,limit_vel =None):
         """透传力位混合补偿参数初始化
         """
         if all(param is None for param in [flag,pose,joint,sensor,mode,follow,control_mode,desired_force,limit_vel]):
@@ -496,16 +515,15 @@ class ElectronicFenceConfig(ctypes.Structure):
 class GripperState(ctypes.Structure):
     _fields_ = [
         ("enable_state", ctypes.c_bool),  # 夹爪使能标志，0 表示未使能，1 表示使能
-        ("status", ctypes.c_int),  # 夹爪在线状态，0 表示离线， 1表示在线
+        ("status", ctypes.c_bool),  # 夹爪在线状态，0 表示离线， 1表示在线
         # 夹爪错误信息，低8位表示夹爪内部的错误信息bit5-7 保留bit4 内部通bit3 驱动器bit2 过流 bit1 过温bit0
-        ("error", ctypes.c_int),
+        ("error", ctypes.c_int32),
         # 当前工作状态：1 夹爪张开到最大且空闲，2 夹爪闭合到最小且空闲，3 夹爪停止且空闲，4 夹爪正在闭合，5 夹爪正在张开，6 夹爪
-        ("mode", ctypes.c_int),
-        ("current_force", ctypes.c_int),  # 夹爪当前的压力，单位g
-        ("temperature", ctypes.c_int),  # 当前温度，单位℃
-        ("actpos", ctypes.c_int),  # 夹爪开口度
+        ("mode", ctypes.c_int32),
+        ("current_force", ctypes.c_int32),  # 夹爪当前的压力，单位g
+        ("temperature", ctypes.c_int32),  # 当前温度，单位℃
+        ("actpos", ctypes.c_int32),  # 夹爪开口度
     ]
-
 
 class CtrlInfo(ctypes.Structure):
     _fields_ = [
@@ -703,7 +721,7 @@ class Send_Project_Params(ctypes.Structure):
 
         @param project_path (str, optional): 下发文件路径文件路径及名称，默认为None
         @param plan_speed (int, optional): 规划速度比例系数，默认为None
-        @param only_save (int, optional): 0-运行文件，1-仅保存文件，不运行，默认为None
+        @param only_save (int, optional): 0-保存并运行文件，1-仅保存文件，不运行，默认为None
         @param save_id (int, optional): 保存到控制器中的编号，默认为None
         @param step_flag (int, optional): 设置单步运行方式模式，1-设置单步模式 0-设置正常运动模式，默认为None
         @param auto_start (int, optional): 设置默认在线编程文件，1-设置默认  0-设置非默认，默认为None
@@ -2472,7 +2490,7 @@ class Move_Plan:
 
         :return:
             tuple[int, int, list[float]]: 一个包含三个元素的元组，分别表示：  
-            - int: 0-成功，失败返回:错误码, errro_message查询.。  
+            - int: 0-成功，失败返回:错误码, error_message查询.。  
             - int: 轨迹规划类型（由 ARM_CTRL_MODES 枚举定义的值）。  
             - list[float]: 包含7个浮点数的列表，关节规划及无规划时，该列表为关节角度数组；其他类型为末端位姿数组[x,y,z,rx,ry,rz]。  
         """
@@ -4091,26 +4109,46 @@ class Set_Hand():
 
         return tag
     
-    def Set_Hand_Follow_Angle(self, angle):
+    def Set_Hand_Follow_Angle(self, angle, block=False):
         """
-        Set_Hand_Follow_Angle 设置灵巧手各关节跟随角度（正式版本暂不支持）
-        :param angle:手指角度数组，6个元素分别代表6个自由度的角度。范围：0~1000.另外，-1代表该自由度不执行任何操作，保持当前状态
+        Set_Hand_Follow_Angle 设置灵巧手各关节跟随角度
+        :param angle:手指角度数组，最大表示范围为-32768到+32767，按照灵巧手厂商定义的角度做控制，例如因时的范围为0-2000
         :return:0-成功，失败返回:错误码, rm_define.h查询.
 
         """
 
         self.pDll.Set_Hand_Follow_Angle.argtypes = (
-            ctypes.c_int, ctypes.c_int * 6)
+            ctypes.c_int, ctypes.c_int * 6, ctypes.c_bool)
         self.pDll.Set_Hand_Follow_Angle.restype = self.check_error
 
         angle = (ctypes.c_int * 6)(*angle)
 
-        tag = self.pDll.Set_Hand_Follow_Angle(self.nSocket, angle)
+        tag = self.pDll.Set_Hand_Follow_Angle(self.nSocket, angle, block)
 
         logger_.info(f'Set_Hand_Follow_Angle:{tag}')
 
         return tag
 
+    def Set_Hand_Follow_Pos(self, pos, block=False):
+        """
+        Set_Hand_Follow_Pos 设置灵巧手各关节跟随位置
+        :param angle:手指位置数组，最大范围为0-65535，按照灵巧手厂商定义的角度做控制，例如因时的范围为0-1000
+        :return:0-成功，失败返回:错误码, rm_define.h查询.
+
+        """
+
+        self.pDll.Set_Hand_Follow_Pos.argtypes = (
+            ctypes.c_int, ctypes.c_int * 6, ctypes.c_bool)
+        self.pDll.Set_Hand_Follow_Pos.restype = self.check_error
+
+        pos = (ctypes.c_int * 6)(*pos)
+
+        tag = self.pDll.Set_Hand_Follow_Pos(self.nSocket, pos, block)
+
+        logger_.info(f'Set_Hand_Follow_Pos:{tag}')
+
+        return tag
+    
     def Set_Hand_Speed(self, speed, block=True):
         """
         Set_Hand_Speed 设置灵巧手各关节速度
@@ -4585,30 +4623,33 @@ class Set_Lift():
         """
         Get_Lift_State           获取升降机构状态
         :param retry: 最大尝试次数
-        Height:当前升降机构高度，单位：mm，精度：1mm，范围：0~2300
-        Current:当前升降驱动电流，单位：mA，精度：1mA
-        Err_flag:升降驱动错误代码，错误代码类型参考关节错误代码
+        :param Height:当前升降机构高度，单位：mm，精度：1mm，范围：0~2300
+        :param Current:当前升降驱动电流，单位：mA，精度：1mA
+        :param Err_flag:升降驱动错误代码，错误代码类型参考关节错误代码
+        :param mode:当前升降状态，0-空闲，1-正方向速度运动，2-正方向位置运动，3-负方向速度运动，4-负方向位置运动
         :return: Height，Current，Err_flag
 
         """
 
-        self.pDll.Get_Lift_State.argtypes = (
-            ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+        self.pDll.Get_Lift_State.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_int), 
+                                            ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
+                                            ctypes.POINTER(ctypes.c_int))
         self.pDll.Get_Lift_State.restype = self.check_error
 
         height = ctypes.c_int()
         current = ctypes.c_int()
         err_flag = ctypes.c_int()
+        mode = ctypes.c_int()
 
         tag = self.pDll.Get_Lift_State(self.nSocket, ctypes.byref(height), ctypes.byref(current),
-                                       ctypes.byref(err_flag))
+                                       ctypes.byref(err_flag),ctypes.byref(mode))
 
         while tag and retry:
             logger_.info(f'Get_Lift_State:{tag},retry is :{6 - retry}')
             tag = self.pDll.Get_Lift_State(self.nSocket, ctypes.byref(height), ctypes.byref(current),
-                                           ctypes.byref(err_flag))
+                                           ctypes.byref(err_flag),ctypes.byref(mode))
 
-        return tag, height.value, current.value, err_flag.value
+        return tag, height.value, current.value, err_flag.value, mode.value
 
     # def Set_Arm_Dynamic_Parm(self, parm, block):
     #     """
@@ -4672,7 +4713,7 @@ class Expand():
 
         self.pDll.Expand_Get_State.argtypes = (
             ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
-        self.pDll.Get_Lift_State.restype = self.check_error
+        self.pDll.Expand_Get_State.restype = self.check_error
 
         pos = ctypes.c_int()
         mode = ctypes.c_int()
@@ -4801,7 +4842,7 @@ class UDP():
 
         return error_code, config
 
-    def Set_Realtime_Push(self, cycle=-1, port=-1, enable=True, force_coordinate=-1, ip=None, joint_speed=-1, lift_state=-1, expand_state=-1, hand_state=-1, arm_current_status=-1):
+    def Set_Realtime_Push(self, cycle=-1, port=-1, enable=True, force_coordinate=-1, ip=None, joint_speed=-1, lift_state=-1, expand_state=-1, hand_state=-1, arm_current_status=-1, aloha_state = -1):
         """
         Set_Realtime_Push            设置主动上报接口配置
         :param cycle:               设置广播周期，为5ms的倍数
@@ -4809,11 +4850,12 @@ class UDP():
         :param enable:              设置使能，是否使能主动上上报
         :param force_coordinate:    系统外受力数据的坐标系，0为传感器坐标系 1为当前工作坐标系 2为当前工具坐标系
         :param ip:                  自定义的上报目标IP地址
-        joint_speed                 关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
-        lift_state                  升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
-        expand_state                扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
-        hand_state                  灵巧手信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
-        arm_current_status          机械臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        :param joint_speed:         关节速度。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        :param lift_state:          升降关节信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        :param expand_state:        扩展关节信息（升降关节和扩展关节为二选一，优先显示升降关节）1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        :param hand_state:          灵巧手信息。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        :param arm_current_status:  机械臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
+        :param aloha_state:         aloha主臂状态。1：上报；0：关闭上报；-1：不设置，保持之前的状态
         :return:                    0-成功，失败返回:错误码, rm_define.h查询.
         """
         self.pDll.Set_Realtime_Push.argtypes = (ctypes.c_int, Realtime_Push_Config)
@@ -4824,7 +4866,7 @@ class UDP():
         else:
             ip = ip.encode('utf-8')
 
-        state = UDP_Custom_Config(joint_speed, lift_state, expand_state, arm_current_status)
+        state = UDP_Custom_Config(joint_speed, lift_state, expand_state, hand_state, arm_current_status, aloha_state)
 
         config = Realtime_Push_Config(cycle, enable, port, force_coordinate, ip, state)
 
@@ -6066,7 +6108,7 @@ class Arm(Set_Joint, Get_Joint, Tcp_Config, Tool_Frame, Work_Frame, Arm_State, I
         if state == 0:
             return state
         else:
-            return errro_message[state]
+            return error_message[state]
 
     def API_Version(self):
         """
@@ -6143,4 +6185,4 @@ class Arm(Set_Joint, Get_Joint, Tcp_Config, Tool_Frame, Work_Frame, Arm_State, I
         if tag == 0:
             return tag
         else:
-            return errro_message[tag]
+            return error_message[tag]
