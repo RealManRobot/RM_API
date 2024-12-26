@@ -17,8 +17,7 @@ extern "C" {
 
 ///
 /// \brief RM_API_Init              API初始化
-/// \param dev_mode                 目标设备型号使用宏定义ARM_65/ARM_75/ARM_63_2/ARM_ECO_65/ARM_ECO62/ARM_GEN72/ARM_ECO63
-///                                 若传入型号非法，则默认机械臂为六轴。
+/// \param dev_mode                 该参数已弃用，可传入NULL
 /// \param pCallback                用于接收透传接口回调函数, 不需要可以传入NULL
 ///  RM_APISHARED_EXPORT
 ///
@@ -546,16 +545,16 @@ RM_BASESHARED_EXPORT int Get_Given_Work_Frame(SOCKHANDLE ArmSocket, char *name, 
 RM_BASESHARED_EXPORT int Get_All_Work_Frame(SOCKHANDLE ArmSocket, FRAME_NAME *names, int *len);
 
 ///
-/// \brief Get_Current_Arm_State 获取机械臂当前状态
+/// \brief Get_Current_Arm_State 获取机械臂当前状态(第三代控制器版本大于1.6.6)
 /// \param ArmSocket socket句柄
 /// \param joint 关节1~6角度数组
 /// \param pose 机械臂当前位姿
-/// \param Arm_Err 机械臂运行错误代码
-/// \param Sys_Err 控制器错误代码
+/// \param Err 错误代码数组
+/// \param Err_len 错误代码长度
 /// \return 0-成功，失败返回:错误码, rm_define.h查询.
 ///
 RM_BASESHARED_EXPORT int Get_Current_Arm_State(SOCKHANDLE ArmSocket, float *joint, Pose *pose,
-                                               uint16_t *Arm_Err, uint16_t *Sys_Err);
+                                                   uint16_t *Err, uint8_t *Err_len);
 
 ///
 /// \brief Clear_System_Err 清除系统错误代码
@@ -718,6 +717,19 @@ RM_BASESHARED_EXPORT int Movec_Cmd(SOCKHANDLE ArmSocket, Pose pose_via, Pose pos
 RM_BASESHARED_EXPORT int Movej_CANFD(SOCKHANDLE ArmSocket, const float *joint, bool follow, float expand);
 
 ///
+/// \brief Movej_CANFD_With_Radio   角度不经规划，直接通过CANFD透传给机械臂（支持设置透传模式，同时可以设置平滑系数）
+/// \param ArmSocket                socket句柄
+/// \param joint                    关节1~7目标角度数组，单位°
+/// \param follow                   true-高跟随，false-低跟随。若使用高跟随，透传周期要求不超过 10ms。
+/// \param expand                   如果存在通用扩展轴，并需要进行透传，可使用该参数进行透传发送。
+/// \param trajectory_mode          高跟随模式下，支持多种模式，0-完全透传模式、1-曲线拟合模式、2-滤波模式
+/// \param radio                    曲线拟合模式0-100和滤波模式下的平滑系数（数值越大效果越好），滤波模式下取值范围0~1000，曲线拟合模式下取值范围0~100
+/// \return 0-成功，失败返回:错误码, rm_define.h查询.
+/// 只要控制器运行正常并且目标角度在可达范围内，机械臂立即返回成功指令，此时机械臂可能仍在运行；
+/// 若有错误，立即返回失败指令。
+RM_BASESHARED_EXPORT int Movej_CANFD_With_Radio(SOCKHANDLE ArmSocket, const float *joint, bool follow, float expand, byte trajectory_mode, int radio);
+
+///
 /// \brief Movep_CANFD 位姿不经规划，直接通过CANFD透传给机械臂
 /// \param ArmSocket socket句柄
 /// \param pose 位姿 (优先采用四元数表达)
@@ -725,6 +737,17 @@ RM_BASESHARED_EXPORT int Movej_CANFD(SOCKHANDLE ArmSocket, const float *joint, b
 /// \return 0-成功，失败返回:错误码, rm_define.h查询.
 ///
 RM_BASESHARED_EXPORT int Movep_CANFD(SOCKHANDLE ArmSocket, Pose pose, bool follow);
+
+///
+/// \brief Movep_CANFD_With_Radio   位姿不经规划，直接通过CANFD透传给机械臂
+/// \param ArmSocket                socket句柄
+/// \param pose                     位姿 (优先采用四元数表达)
+/// \param follow                   true-高跟随，false-低跟随。若使用高跟随，透传周期要求不超过 10ms。
+/// \param trajectory_mode          高跟随模式下，支持多种模式，0-完全透传模式、1-曲线拟合模式、2-滤波模式
+/// \param radio                    曲线拟合模式0-100和滤波模式下的平滑系数（数值越大效果越好），滤波模式下取值范围0~1000，曲线拟合模式下取值范围0~100
+/// \return 0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Movep_CANFD_With_Radio(SOCKHANDLE ArmSocket, Pose pose, bool follow, byte trajectory_mode, int radio);
 
 ///
 /// \brief Movej_Follow 关节空间跟随运动
@@ -1081,6 +1104,21 @@ RM_BASESHARED_EXPORT int Set_High_Speed_Eth(SOCKHANDLE ArmSocket, byte num, bool
 /// \return         0-成功，失败返回:错误码, rm_define.h查询.
 ///
 RM_BASESHARED_EXPORT int Get_IO_State(SOCKHANDLE ArmSocket, byte num, byte *state, byte *mode);
+
+///
+/// \brief Get_IO_State_With_RealtimeSpeed  获取IO状态[-I]
+/// \param ArmSocket                        socket句柄
+/// \param num                              通道号，1~4
+/// \param state                            IO状态
+/// \param mode                             0-通用输入模式，1-通用输出模式、2-输入开始功能复用模式、3-输入暂停功能复用模式、4-输入继续功能复用模式、5-输入急停功能复用模式、
+///                                         6-输入进入电流环拖动复用模式、7-输入进入力只动位置拖动模式（六维力版本可配置）、8-输入进入力只动姿态拖动模式（六维力版本可配置）、
+///                                         9-输入进入力位姿结合拖动复用模式（六维力版本可配置）、10-输入外部轴最大软限位复用模式（外部轴模式可配置）、
+///                                         11-输入外部轴最小软限位复用模式（外部轴模式可配置）、12-输入初始位姿功能复用模式、13-输出碰撞功能复用模式、14-实时调速功能复用模式。
+/// \param speed                            速度取值范围0-100
+/// \param speed_mode                       模式取值范围1或2
+/// \return                                 0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Get_IO_State_With_RealtimeSpeed(SOCKHANDLE ArmSocket, byte num, byte *state, byte *mode, byte *speed, byte *speed_mode);
 
 ///
 /// \brief Get_IO_Input 查询所有数字和模拟IO的输入状态
@@ -1991,6 +2029,20 @@ RM_BASESHARED_EXPORT int Set_Net_Default(SOCKHANDLE ArmSocket);
 /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
 ///
 RM_BASESHARED_EXPORT int Set_IO_Mode(SOCKHANDLE ArmSocket, byte io_num, byte io_mode);
+
+///
+/// \brief Set_IO_Mode_With_RealtimeSpeed   设置数字IO模式[-I]
+/// \param ArmSocket                        socket句柄
+/// \param io_num                           IO端口号，范围：1~4
+/// \param io_mode                          0-通用输入模式，1-通用输出模式、2-输入开始功能复用模式、3-输入暂停功能复用模式、4-输入继续功能复用模式、5-输入急停功能复用模式、
+///                                         6-输入进入电流环拖动复用模式、7-输入进入力只动位置拖动模式（六维力版本可配置）、8-输入进入力只动姿态拖动模式（六维力版本可配置）、
+///                                         9-输入进入力位姿结合拖动复用模式（六维力版本可配置）、10-输入外部轴最大软限位复用模式（外部轴模式可配置）、
+///                                         11-输入外部轴最小软限位复用模式（外部轴模式可配置）、12-输入初始位姿功能复用模式、13-输出碰撞功能复用模式、14-实时调速功能复用模式。
+/// \param io_speed                         速度取值范围0-100
+/// \param io_speed_mode                    模式取值范围1或2
+/// \return                                 0-成功，失败返回:错误码, rm_define.h查询.
+///
+RM_BASESHARED_EXPORT int Set_IO_Mode_With_RealtimeSpeed(SOCKHANDLE ArmSocket, byte io_num, byte io_mode, byte io_speed, byte io_speed_mode);
 
 ///
 /// \brief Set_DO_State                 设置数字IO输出

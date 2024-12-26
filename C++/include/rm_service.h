@@ -569,18 +569,18 @@ public:
     RM_SERVICESHARED_EXPORT int Service_Get_All_Work_Frame(SOCKHANDLE ArmSocket, FRAME_NAME* names, int *len);
 
     ///
-    /// \brief Service_Get_Current_Arm_State 获取机械臂当前状态
+    /// \brief Get_Current_Arm_State_New 获取机械臂当前状态(第三代控制器版本大于1.6.6)
     /// \param ArmSocket socket句柄
     /// \param joint 关节1~6角度数组
     /// \param pose 机械臂当前位姿
-    /// \param Arm_Err 机械臂运行错误代码
-    /// \param Sys_Err 控制器错误代码
+    /// \param Err 错误代码数组
+    /// \param Err_len 错误代码长度
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Get_Current_Arm_State(SOCKHANDLE ArmSocket, float *joint, std::shared_ptr<Pose>& pose,
-                                                              uint16_t *Arm_Err, uint16_t *Sys_Err);
+                                                       uint16_t *Err, uint8_t *Err_len);
     RM_SERVICESHARED_EXPORT int Service_Get_Current_Arm_State(SOCKHANDLE ArmSocket, float *joint, Pose* pose,
-                                                              uint16_t *Arm_Err, uint16_t *Sys_Err);
+                                                              uint16_t *Err, uint8_t *Err_len);
 
     ///
     /// \brief Service_Clear_System_Err 清除系统错误代码
@@ -768,6 +768,20 @@ public:
     /// 只要控制器运行正常并且目标角度在可达范围内，机械臂立即返回成功指令，此时机械臂可能仍在运行；
     /// 若有错误，立即返回失败指令。
     RM_SERVICESHARED_EXPORT int Service_Movej_CANFD(SOCKHANDLE ArmSocket, const float *joint, bool follow, float expand);
+
+    ///
+    /// \brief Service_Movej_CANFD_With_Radio 角度不经规划，直接通过CANFD透传给机械臂
+    /// \param ArmSocket socket句柄
+    /// \param joint 关节1~7目标角度数组
+    /// \param follow 是否高跟随
+    /// \param expand 扩展关节的透传
+    /// \param trajectory_mode 高跟随模式下，支持多种模式，0-完全透传模式、1-曲线拟合模式、2-滤波模式
+    /// \param radio 曲线拟合模式0-100和滤波模式下的平滑系数（数值越大效果越好），滤波模式下取值范围0~1000，曲线拟合模式下取值范围0~100
+    /// \return 0-成功，失败返回:错误码, rm_define.h查询.
+    /// 只要控制器运行正常并且目标角度在可达范围内，机械臂立即返回成功指令，此时机械臂可能仍在运行；
+    /// 若有错误，立即返回失败指令。
+    RM_SERVICESHARED_EXPORT int Service_Movej_CANFD_With_Radio(SOCKHANDLE ArmSocket, const float *joint, bool follow, float expand, byte trajectory_mode, int radio);
+
     ///
     /// \brief Service_Movej_Follow 关节空间跟随运动
     /// \param ArmSocket socket句柄
@@ -792,6 +806,17 @@ public:
     /// \return 0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Movep_CANFD(SOCKHANDLE ArmSocket, Pose pose, bool follow);
+
+    ///
+    /// \brief Movep_CANFD 位姿不经规划，直接通过CANFD透传给机械臂
+    /// \param ArmSocket socket句柄
+    /// \param pose 位姿 (优先采用四元数表达)
+    /// \param follow    是否高跟随
+    /// \param trajectory_mode 高跟随模式下，支持多种模式，0-完全透传模式、1-曲线拟合模式、2-滤波模式
+    /// \param radio 曲线拟合模式0-100和滤波模式下的平滑系数（数值越大效果越好），滤波模式下取值范围0~1000，曲线拟合模式下取值范围0~100
+    /// \return 0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Movep_CANFD_With_Radio(SOCKHANDLE ArmSocket, Pose pose, bool follow, byte trajectory_mode, int radio);
 
     ///
     /// \brief Service_Move_Stop_Cmd 突发状况 机械臂以最快速度急停，轨迹不可恢复
@@ -1106,6 +1131,19 @@ public:
     /// \return         0-成功，失败返回:错误码, rm_define.h查询.
     ///
     RM_SERVICESHARED_EXPORT int Service_Get_IO_State(SOCKHANDLE ArmSocket, byte num, byte *state, byte *mode);
+
+    ///
+    /// \brief Service_Get_IO_State_With_RealtimeSpeed  获取IO状态[-I]
+    /// \param ArmSocket                    socket句柄
+    /// \param num                          通道号，1~4
+    /// \param state                        IO状态
+    /// \param mode                         0-通用输入模式，1-通用输出模式、2-输入开始功能复用模式、3-输入暂停功能复用模式、4-输入继续功能复用模式、5-输入急停功能复用模式、
+    ///                                     6-输入进入电流环拖动复用模式、7-输入进入力只动位置拖动模式（六维力版本可配置）、8-输入进入力只动姿态拖动模式（六维力版本可配置）、
+    ///                                     9-输入进入力位姿结合拖动复用模式（六维力版本可配置）、10-输入外部轴最大软限位复用模式（外部轴模式可配置）、
+    ///                                     11-输入外部轴最小软限位复用模式（外部轴模式可配置）
+    /// \return                             0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Get_IO_State_With_RealtimeSpeed(SOCKHANDLE ArmSocket, byte num, byte *state, byte *mode, byte *speed, byte *speed_mode);
 
     ///
     /// \brief Service_Get_IO_Input 查询所有数字和模拟IO的输入状态
@@ -2074,6 +2112,18 @@ public:
     RM_SERVICESHARED_EXPORT int Service_Set_IO_Mode(SOCKHANDLE ArmSocket, byte io_num, byte io_mode);
 
     ///
+    /// \brief Service_Set_IO_Mode_With_RealtimeSpeed   设置数字IO模式[-I]
+    /// \param ArmSocket                                socket句柄
+    /// \param io_num                                   IO端口号，范围：1~4
+    /// \param io_mode                                  0-通用输入模式，1-通用输出模式、2-输入开始功能复用模式、3-输入暂停功能复用模式、4-输入继续功能复用模式、5-输入急停功能复用模式、
+    ///                                                 6-输入进入电流环拖动复用模式、7-输入进入力只动位置拖动模式（六维力版本可配置）、8-输入进入力只动姿态拖动模式（六维力版本可配置）、
+    ///                                                 9-输入进入力位姿结合拖动复用模式（六维力版本可配置）、10-输入外部轴最大软限位复用模式（外部轴模式可配置）、
+    ///                                                 11-输入外部轴最小软限位复用模式（外部轴模式可配置）、12-输入初始位姿功能复用模式、13-输出碰撞功能复用模式。
+    /// \return                                         0-成功，失败返回:错误码, rm_define.h查询.
+    ///
+    RM_SERVICESHARED_EXPORT int Service_Set_IO_Mode_With_RealtimeSpeed(SOCKHANDLE ArmSocket, byte io_num, byte io_mode, byte speed, byte speed_mode);
+
+    ///
     /// \brief Service_Set_DO_State         设置数字IO输出
     /// \param ArmSocket                    socket句柄
     /// \param io_num                       通道号，1~4
@@ -2182,8 +2232,6 @@ public:
     /// \param RobotStatus                      机械臂状态
     ///
     RM_SERVICESHARED_EXPORT int Service_Get_Realtime_Arm_Joint_State(std::shared_ptr<RobotStatus>& RobotStatus);
-    RM_SERVICESHARED_EXPORT int Service_Get_Realtime_Arm_Joint_State(RobotStatus* RobotStatus);
-
 
     ///
     /// \brief Service_Add_Electronic_Fence_Config 新增几何模型参数
