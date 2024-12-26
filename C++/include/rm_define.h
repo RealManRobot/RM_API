@@ -47,7 +47,7 @@ typedef SOCKET  SOCKHANDLE;
 typedef int SOCKHANDLE;
 #endif
 
-#define  SDK_VERSION (char*)"4.3.6"
+#define  SDK_VERSION (char*)"4.3.7"
 
 typedef unsigned char byte;
 typedef unsigned short u16;
@@ -156,7 +156,8 @@ typedef struct
     float current[ARM_DOF];       ///< 关节电流
     byte en_state[ARM_DOF];       ///< 使能状态
     uint16_t err_flag[ARM_DOF];   ///< 关节错误代码
-    uint16_t sys_err;             ///< 机械臂系统错误代码
+    uint8_t err_len;              ///< 错误代码长度
+    uint16_t err[24];             ///< 错误代码
 }JOINT_STATE;
 
 //位置
@@ -258,8 +259,8 @@ typedef struct{
  * 在线编程运行状态结构体
  */
 typedef struct{
-    int run_state;  ///< 0 未开始 1运行中 2暂停中
-    int id;         ///< 运行轨迹编号，已存储轨迹 的id，没有存储则为0 ，未运行则不返回
+    int run_state;  ///< 0 未开始 1运行中 2暂停中
+    int id;         ///< 运行轨迹编号，已存储轨迹 的id，没有存储则为0 ，未运行则不返回
     int edit_id;    ///< 上次编辑的在线编程编号 ID，未运行时返回，没有存储则为0
     int plan_num;   ///< 运行到的行数，未运行则不返回
     int loop_num[10];   ///< 存在循环指令的行数，未运行则不返回
@@ -374,18 +375,18 @@ typedef struct {
  * UDP接口实时机械臂状态上报
  */
 typedef struct {
-    int errCode;        ///< 接口错误码
-    char *arm_ip;       ///< 上报数据的机械臂IP
-    uint16_t arm_err;
-    JointStatus joint_status;   ///< 关节状态
-    ForceData force_sensor;     ///< 力数据
-    uint16_t sys_err;       ///< 系统错误码
-    Pose waypoint;      ///< 当前路点
-    LiftState liftState;      ///< 升降关节数据
-    ExpandState expandState;      ///< 扩展关节数据
-    HandState handState;         ///< 灵巧手数据
+    int errCode;                    ///< 接口错误码
+    char *arm_ip;                   ///< 上报数据的机械臂IP
+    JointStatus joint_status;       ///< 关节状态
+    ForceData force_sensor;         ///< 力数据
+    uint8_t err_len;                ///< 错误码个数
+    uint16_t err[24];               ///< 错误码
+    Pose waypoint;                  ///< 当前路点
+    LiftState liftState;            ///< 升降关节数据
+    ExpandState expandState;        ///< 扩展关节数据
+    HandState handState;            ///< 灵巧手数据
     ArmCurrentStatus arm_current_status;     ///< 机械臂状态
-    Alohastate aloha_state;     ///< aloha主臂状态
+    Alohastate aloha_state;         ///< aloha主臂状态
 } RobotStatus;
 
 
@@ -578,6 +579,8 @@ typedef struct
     int control_mode[6];       ///< 6个力控方向的模式 0-固定模式 1-浮动模式 2-弹簧模式 3-运动模式 4-力跟踪模式 5-浮动+运动模式 6-弹簧+运动模式 7-力跟踪+运动模式 8-姿态自适应模式
     float desired_force[6];     ///< 力控轴维持的期望力/力矩，力控轴的力控模式为力跟踪模式时，期望力/力矩设置才会生效 ，精度0.1N。
     float limit_vel[6];     ///< 力控轴的最大线速度和最大角速度限制，只对开启力控方向生效。
+    int trajectory_mode;   ///<高跟随模式下，支持多种模式，0-完全透传模式、1-曲线拟合模式、2-滤波模式
+    int radio;             ///<曲线拟合模式0-100和滤波模式下的平滑系数（数值越大效果越好），滤波模式下取值范围0~1000，曲线拟合模式下取值范围0~100
 }ForcePositionMove;
 
 typedef struct{
@@ -588,7 +591,7 @@ typedef struct{
 }DHData;
 
 typedef void (*RobotStatusListener)(RobotStatus data);
-typedef void (*RM_Callback)(CallbackData data);
+typedef void (*RM_Callback)(CallbackData data); //适用于第二代控制器
 
 #define  M_PI_RAD    0.0174533f
 #define  MI_PI_ANG   57.2957805f
